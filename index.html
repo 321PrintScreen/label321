@@ -89,7 +89,7 @@ main{padding:0;max-width:none}.app{display:block}.pv{position:static}
 <main>
 <div id="makeView" class="app">
  <div class="form">
-  <div class="card"><h2>1. ที่อยู่ผู้ส่ง <button class="b" style="padding:2px 8px;font-size:12px" onclick="resetPos('snd')">รีเซ็ตตำแหน่ง</button></h2>
+  <div class="card"><h2>1. ที่อยู่ผู้ส่ง <button class="b" style="padding:2px 8px;font-size:12px" onclick="resetPos('snd')">รีเซ็ตตำแหน่ง</button> <button class="b" style="padding:2px 8px;font-size:12px" onclick="saveDefSender()">ตั้งเป็นค่าเริ่มต้น</button></h2>
    <textarea id="sender" rows="4" data-k="sender"></textarea></div>
   <div class="card"><h2>2. ที่อยู่ผู้รับ <button class="b" style="padding:2px 8px;font-size:12px" onclick="resetPos('rcv')">รีเซ็ตตำแหน่ง</button></h2>
    <p class="hint" style="margin:0 0 4px">ลากที่อยู่ผู้ส่ง/ผู้รับบนใบปะหน้าเพื่อเลื่อนตำแหน่งได้</p>
@@ -140,7 +140,9 @@ main{padding:0;max-width:none}.app{display:block}.pv{position:static}
 <svg width="0" height="0" style="position:absolute"><defs id="defs"></defs></svg>
 <script>
 const KEY='cover_jobs_v1', DAY=864e5, LIMIT=3*DAY;
-const DEF=()=>({sender:'321Print&Screen\n97/232 ถ.สุวรรณศร ต.สระแก้ว\nอ.เมืองสระแก้ว จ.สระแก้ว 27000\nโทร.. 096-262-8716',
+const SK='cover_sender_default',BUILTIN='321Print&Screen\n97/232 ถ.สุวรรณศร  ต.สระแก้ว \nอ.เมืองสระแก้ว  จ.สระแก้ว 27000\nโทร.. 096-262-8716';
+const getDS=()=>{try{return localStorage.getItem(SK)||BUILTIN}catch(e){return BUILTIN}};
+const DEF=()=>({sender:getDS(),
  rName:'',rPhone:'',rAddr:'',pos:{snd:{x:0,y:0},rcv:{x:0,y:0}},rows:[{size:'',qty:'',unit:'แผ่น'}],cut:false,cod:false,codAmt:'',ems:false,note:'',imgs:[]});
 let S=DEF(), sel=null, editId=null, filter='all';
 const $=s=>document.querySelector(s);
@@ -169,9 +171,144 @@ async function importLocal(){const L=localLoad();let n=0;
 let UNSUBS=[];
 function attachDB(c){UNSUBS.forEach(f=>f());DB=c;
  UNSUBS=[DB.collection('jobs').onSnapshot(sn=>{RAWJ=sn.docs.map(d=>({id:d.id,...d.data()}));refreshJobs()},e=>toast('เชื่อมต่อฐานข้อมูลไม่ได้: '+(e.code||''))),
- DB.collection('jobimgs').onSnapshot(sn=>{IMGS={};sn.docs.forEach(d=>IMGS[d.id]=d.data().src);refreshJobs()},()=>{})];
+ DB.collection('jobimgs').onSnapshot(sn=>{IMGS={};sn.docs.forEach(d=>IMGS[d.id]=d.data().src);refreshJobs()},()=>{}),watchSettings()];
  $('#mode').textContent='☁️ ซิงค์ข้ามเครื่อง';refreshJobs();}
 function detachDB(){UNSUBS.forEach(f=>f());UNSUBS=[];DB=null;RAWJ=[];IMGS={};$('#mode').textContent='💾 เก็บในเครื่องนี้';refreshJobs();}
+const store=j=>{try{localStorage.setItem(KEY,JSON.stringify(j));return true}catch(e){toast('บันทึกไม่สำเร็จ (พื้นที่เต็ม?) ลองลดจำนวน/ขนาดรูป');return false}};
+
+function view(v){$('#makeView').classList.toggle('hide',v!=='make');$('#jobsView').classList.toggle('hide',v!=='jobs');
+ $('#t1').classList.toggle('on',v==='make');$('#t2').classList.toggle('on',v==='jobs');if(v==='jobs')renderJobs();}
+
+/* ---------- form binding ---------- */
+document.querySelectorAll('[data-k]').forEach(el=>el.addEventListener('input',()=>{
+ S[el.dataset.k]=el.type==='checkbox'?el.checked:el.value;
+ if(el.dataset.k==='cod'&&S.cod)S.ems=false;if(el.dataset.k==='ems'&&S.ems)S.cod=false;
+ document.querySelectorAll('[data-k=cod],[data-k=ems]').forEach(c=>c.checked=!!S[c.dataset.k]);
+ renderSheet();$('#codBox').classList.toggle('hide',!S.cod);}));
+function fill(){S.pos=S.pos||{snd:{x:0,y:0},rcv:{x:0,y:0}};if(S.cod&&S.ems)S.ems=false;document.querySelectorAll('[data-k]').forEach(el=>{const v=S[el.dataset.k];el.type==='checkbox'?el.checked=!!v:el.value=v??''});
+ $('#codBox').classList.toggle('hide',!S.cod);renderRows();renderThumbs();renderSheet();}
+function renderRows(){$('#rows').innerHTML=S.rows.map((r,i)=>`<div class="row">
+ <input type="text" placeholder="ขนาด เช่น 5 ซม." value="${esc(r.size)}" oninput="S.rows[${i}].size=this.value;renderSheet()">
+ <input type="number" placeholder="จำนวน" value="${esc(r.qty)}" oninput="S.rows[${i}].qty=this.value;renderSheet()">
+ <select onchange="S.rows[${i}].unit=this.value;renderSheet()">${['แผ่น','ชิ้น'].map(u=>`<option ${u===r.unit?'selected':''}>${u}</option>`).join('')}</select>
+ <button class="b d" onclick="S.rows.splice(${i},1);if(!S.rows.length)S.rows.push({size:'',qty:'',unit:'แผ่น'});renderRows();renderSheet()">×</button></div>`).join('');}
+function addRow(){S.rows.push({size:'',qty:'',unit:'แผ่น'});renderRows();}
+
+/* ---------- images ---------- */
+$('#fi').addEventListener('change',async e=>{await addFiles(e.target.files);e.target.value='';});
+document.addEventListener('paste',async e=>{
+ const fs=[...(e.clipboardData?.items||[])].filter(i=>i.type.startsWith('image/')).map(i=>i.getAsFile()).filter(Boolean);
+ if(!fs.length||$('#makeView').classList.contains('hide'))return;e.preventDefault();await addFiles(fs);});
+async function addFiles(files){
+ for(const f of files){const src=await shrink(f);S.imgs.push({id:'i'+Date.now()+Math.random().toString(36).slice(2,6),src,x:30,y:58,w:35,inv:0,sharp:0,con:100,bri:100});sel=S.imgs.at(-1).id;}
+ renderThumbs();renderSheet();}
+function shrink(f){return new Promise(res=>{const im=new Image();im.onload=()=>{let m=700,u;
+ do{const k=Math.min(1,m/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);u=c.toDataURL('image/webp',.85);m*=.8}while(u.length>230000&&m>150);
+ URL.revokeObjectURL(im.src);res(u)};im.src=URL.createObjectURL(f)})}
+const cur=()=>S.imgs.find(i=>i.id===sel);
+function renderThumbs(){$('#thumbs').innerHTML=S.imgs.map(i=>`<img src="${i.src}" class="${i.id===sel?'on':''}" onclick="pick('${i.id}')">`).join('');
+ const c=cur();$('#imgPanel').classList.toggle('hide',!c);
+ if(c)$('#invChk').checked=c.inv>0;
+ if(c)document.querySelectorAll('[data-i]').forEach(el=>{el.value=c[el.dataset.i];$('#v_'+el.dataset.i).textContent=c[el.dataset.i]});}
+function pick(id){sel=id;renderThumbs();document.querySelectorAll('.im').forEach(e=>e.classList.toggle('sel',e.dataset.id===id));}
+$('#invChk').addEventListener('change',e=>{const c=cur();if(!c)return;c.inv=e.target.checked?100:0;renderSheet();});
+document.querySelectorAll('[data-i]').forEach(el=>el.addEventListener('input',()=>{const c=cur();if(!c)return;
+ c[el.dataset.i]=+el.value;$('#v_'+el.dataset.i).textContent=el.value;renderSheet();}));
+function resetImg(){const c=cur();if(!c)return;Object.assign(c,{inv:0,sharp:0,con:100,bri:100});renderThumbs();renderSheet();}
+function delImg(){S.imgs=S.imgs.filter(i=>i.id!==sel);sel=S.imgs.at(-1)?.id||null;renderThumbs();renderSheet();}
+const kern=s=>{const a=s/100*1.5;return `0 ${-a} 0 ${-a} ${1+4*a} ${-a} 0 ${-a} 0`};
+
+/* ---------- sheet ---------- */
+function renderSheet(){
+ $('#sheet').classList.toggle('hascod',!!S.cod);
+ const lines=S.sender.split('\n');
+ const dets=S.rows.filter(r=>r.size||r.qty).map(r=>`${esc(r.size)}${r.size&&r.qty?' = ':''}${esc(r.qty)}${r.qty?' '+r.unit:''}`);
+ if(S.cut&&dets.length)dets.push('(ตัดแยกชิ้น)');
+ $('#defs').innerHTML=S.imgs.map(i=>`<filter id="f${i.id}"><feConvolveMatrix order="3" preserveAlpha="true" kernelMatrix="${kern(i.sharp)}"/></filter>`).join('');
+ $('#sheet').innerHTML=`<div class="snd" style="transform:translate(${S.pos.snd.x}cqw,${S.pos.snd.y}cqw)">${esc(S.sender)}</div>
+ <div class="rcv" style="transform:translate(${S.pos.rcv.x}cqw,${S.pos.rcv.y}cqw)"><span class="pl">กรุณาส่ง..</span><div><div class="nm">${esc(S.rName)} ${esc(S.rPhone)}</div><div class="ad">${esc(S.rAddr)}</div></div></div>
+ ${S.imgs.map(i=>`<div class="im ${i.id===sel?'sel':''}" data-id="${i.id}" style="left:${i.x}%;top:${i.y}%;width:${i.w}%">
+  <img src="${i.src}" style="filter:invert(${i.inv/100}) contrast(${i.con}%) brightness(${i.bri}%) ${i.sharp?`url(#f${i.id})`:''}"><i class="h"></i><b class="x">×</b></div>`).join('')}
+ ${S.cod?`<div class="cod">เก็บเงินปลายทาง${S.codAmt?' '+esc(Number(S.codAmt).toLocaleString('en-US'))+' บาท':''}</div>`:''}
+ ${S.ems?'<div class="ems">EMS</div>':''}
+ <div class="det">${dets.join('<br>')}</div>`;}
+let drag=null;
+$('#sheet').addEventListener('pointerdown',e=>{
+ const im=e.target.closest('.im');
+ if(!im){const b=e.target.closest('.snd,.rcv'),key=b&&(b.classList.contains('snd')?'snd':'rcv');
+  if(sel){sel=null;renderThumbs();renderSheet()}
+  if(key){const el=$('#sheet .'+key);drag={mode:'blk',key,el,sx:e.clientX,sy:e.clientY,ox:S.pos[key].x,oy:S.pos[key].y,W:$('#sheet').getBoundingClientRect().width};el.setPointerCapture(e.pointerId);e.preventDefault()}
+  return}
+ const i=S.imgs.find(a=>a.id===im.dataset.id);
+ if(e.target.classList.contains('x')){sel=i.id;delImg();return}
+ if(sel!==i.id){pick(i.id)}
+ const r=$('#sheet').getBoundingClientRect();
+ drag={i,im,mode:e.target.classList.contains('h')?'rs':'mv',sx:e.clientX,sy:e.clientY,x:i.x,y:i.y,w:i.w,W:r.width,H:r.height};
+ im.setPointerCapture(e.pointerId);e.preventDefault();});
+$('#sheet').addEventListener('pointermove',e=>{if(!drag)return;const d=drag;
+ if(d.mode==='blk'){const x=+(d.ox+(e.clientX-d.sx)/d.W*100).toFixed(2),y=+(d.oy+(e.clientY-d.sy)/d.W*100).toFixed(2);S.pos[d.key]={x,y};d.el.style.transform=`translate(${x}cqw,${y}cqw)`;return}
+ const dx=(e.clientX-d.sx)/d.W*100,dy=(e.clientY-d.sy)/d.H*100;
+ if(d.mode==='mv'){d.i.x=+(d.x+dx).toFixed(2);d.i.y=+(d.y+dy).toFixed(2);d.im.style.left=d.i.x+'%';d.im.style.top=d.i.y+'%'}
+ else{d.i.w=Math.max(5,Math.min(100,+(d.w+dx).toFixed(2)));d.im.style.width=d.i.w+'%';$('[data-i=w]').value=d.i.w;$('#v_w').textContent=Math.round(d.i.w)}});
+['pointerup','pointercancel'].forEach(t=>$('#sheet').addEventListener(t,()=>{drag=null}));
+
+/* ---------- jobs ---------- */
+async function createJob(){
+ if(!S.rName.trim()&&!S.rAddr.trim()){toast('กรุณากรอกชื่อ/ที่อยู่ผู้รับ');return}
+ const data=JSON.parse(JSON.stringify(S)),ex=editId&&load().find(j=>j.id===editId);
+ const job=ex?{...ex,data}:{id:'j'+Date.now(),createdAt:Date.now(),status:'issued',sentAt:null,data};
+ if(!await saveJob(job))return;editId=job.id;
+ $('#editInfo').textContent='บันทึกงานแล้ว — กำลังแก้ไขงานนี้ (กด "ล้างฟอร์ม" เพื่อเริ่มงานใหม่)';updCount();
+ setTimeout(printSheet,150);}
+function printSheet(){
+ const sh=$('#sheet').cloneNode(true);sh.querySelectorAll('.sel').forEach(e=>e.classList.remove('sel'));
+ const html=`<!DOCTYPE html><html lang="th"><head><meta charset="utf-8"><title>ใบปะหน้า</title><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600;700;800&display=swap" rel="stylesheet"><style>${document.querySelector('style').textContent}
+@media screen{body{background:#ddd}.sheet{width:148mm;height:210mm;margin:0 auto}}</style></head><body><svg width="0" height="0" style="position:absolute"><defs>${$('#defs').innerHTML}</defs></svg><main>${sh.outerHTML}</main><script>addEventListener('load',()=>setTimeout(()=>print(),600))<\/script></body></html>`;
+ let w=null;try{w=window.open('','_blank')}catch(e){}
+ if(w){w.document.open();w.document.write(html);w.document.close();return}
+ try{window.print()}catch(e){}
+ toast('เบราว์เซอร์บล็อกหน้าต่างพิมพ์ — ลองอนุญาต pop-up หรือเปิดเว็บในแท็บเต็มแล้วกดพิมพ์ (Ctrl+P)');
+}
+function resetPos(k){S.pos[k]={x:0,y:0};renderSheet();}
+function saveDefSender(){const t=S.sender;try{localStorage.setItem(SK,t)}catch(e){}
+ if(DB)DB.doc('settings/sender').set({text:t}).catch(()=>{});toast('บันทึกที่อยู่ผู้ส่งเป็นค่าเริ่มต้นแล้ว');}
+function watchSettings(){return DB.collection('settings').onSnapshot(sn=>{const d=sn.docs.find(x=>x.id==='sender'),t=d&&d.data().text,old=getDS();
+ if(t&&t!==old){try{localStorage.setItem(SK,t)}catch(e){}if(!editId&&S.sender===old){S.sender=t;fill()}}},()=>{});}
+function newForm(){S=DEF();sel=null;editId=null;$('#editInfo').textContent='';fill();}
+function updCount(){const n=load().filter(j=>j.status!=='sent').length;$('#cnt').textContent=n?`(${n} ยังไม่ส่ง)`:'';}
+function fmt(t){return new Date(t).toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'})}
+function remain(j){const left=j.createdAt+LIMIT-Date.now();
+ if(left<0){const d=Math.floor(-left/DAY);return {late:true,txt:`ล่าช้า ${d?d+' วัน ':''}${Math.floor(-left%DAY/36e5)} ชม.`}}
+ return {late:false,txt:`เหลือ ${Math.floor(left/DAY)} วัน ${Math.floor(left%DAY/36e5)} ชม.`}}
+function renderJobs(){
+ const mg=DB?localLoad().length:0;
+ $('#mig').innerHTML=mg?`<div class="card">พบงานเก่า ${mg} งานที่เก็บในเครื่องนี้ <button class="b p" onclick="importLocal()">นำเข้าไปที่ระบบกลาง</button></div>`:'';
+ const all=load().map(j=>({...j,rm:remain(j)})), late=j=>j.status!=='sent'&&j.rm.late;
+ const F={all:['ทั้งหมด',all.length],pending:['ยังไม่ส่ง',all.filter(j=>j.status!=='sent').length],late:['ล่าช้า',all.filter(late).length],sent:['ส่งแล้ว',all.filter(j=>j.status==='sent').length]};
+ $('#flt').innerHTML=Object.entries(F).map(([k,[l,n]])=>`<button class="tab ${filter===k?'on':''}" onclick="filter='${k}';renderJobs()">${l} (${n})</button>`).join('');
+ const list=all.filter(j=>filter==='all'||(filter==='pending'&&j.status!=='sent')||(filter==='late'&&late(j))||(filter==='sent'&&j.status==='sent'));
+ $('#jobList').innerHTML=list.length?list.map(j=>{const d=j.data,L=late(j);
+  const sum=d.rows.filter(r=>r.size||r.qty).map(r=>`${esc(r.size)} ${r.qty?'× '+esc(r.qty)+' '+r.unit:''}`).join(', ');
+  return `<div class="card job ${L?'late':''}"><img class="t" src="${d.imgs[0]?.src||'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=='}">
+  <div><div><b>${esc(d.rName)||'(ไม่มีชื่อ)'}</b> ${esc(d.rPhone)}</div>
+  <div class="hint">${esc(d.rAddr.replace(/\n/g,' '))}</div>
+  <div class="hint">${sum}${d.cut?' • ตัดแยกชิ้น':''}${d.cod?' • COD'+(d.codAmt?' '+esc(d.codAmt):''):''}${d.ems?' • EMS':''}</div>
+  <div style="margin-top:4px">${j.status==='sent'?'<span class="bd s">ส่งแล้ว</span>':'<span class="bd a">ออกใบปะหน้าแล้ว</span>'}${L?'<span class="bd l">ล่าช้า</span>':''}
+   <span class="hint">สร้าง ${fmt(j.createdAt)}${j.status==='sent'?` • ส่งเมื่อ ${fmt(j.sentAt)}`:` • ${j.rm.txt} (กำหนด ${fmt(j.createdAt+LIMIT)})`}</span></div></div>
+  <div class="jb">${j.status!=='sent'?`<button class="b p" onclick="setSent('${j.id}')">ส่งแล้ว ✓</button>`:`<button class="b" onclick="setSent('${j.id}',1)">ยกเลิกส่งแล้ว</button>`}
+  <button class="b" onclick="openJob('${j.id}')">เปิด/พิมพ์ซ้ำ</button><button class="b d" style="${pendDel===j.id?'background:var(--bad);color:#fff;border-color:var(--bad)':''}" onclick="delJob('${j.id}')">${pendDel===j.id?'กดอีกครั้งเพื่อยืนยันลบ':'ลบ'}</button></div></div>`}).join('')
+  :'<p class="hint">ยังไม่มีงานในหมวดนี้</p>';updCount();}
+async function setSent(id,undo){const st=undo?'issued':'sent',at=undo?null:Date.now();
+ if(!DB){const j=localLoad(),x=j.find(a=>a.id===id);x.status=st;x.sentAt=at;store(j);renderJobs();return}
+ try{await DB.doc('jobs/'+id).update({status:st,sentAt:at})}catch(e){toast('ไม่สำเร็จ: '+(e.message||e.code))}}
+let pendDel=null;
+function delJob(id){
+ if(pendDel===id){pendDel=null;removeJob(id);toast('ลบงานแล้ว');return}
+ pendDel=id;renderJobs();setTimeout(()=>{if(pendDel===id){pendDel=null;renderJobs()}},4000);}
+function toast(m){let t=$('#toast');if(!t){t=document.createElement('div');t.id='toast';t.style.cssText='position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:#1d2330;color:#fff;padding:10px 16px;border-radius:10px;z-index:99;max-width:90%;font-size:14px';document.body.appendChild(t)}
+ t.textContent=m;t.style.display='block';clearTimeout(t._t);t._t=setTimeout(()=>t.style.display='none',3500);}
+function openJob(id){const j=load().find(a=>a.id===id);S=Object.assign(DEF(),JSON.parse(JSON.stringify(j.data)));editId=id;sel=null;
+ $('#editInfo').textContent='กำลังแก้ไขงานที่บันทึกไว้ (เวลานับ 3 วันยังนับจากวันที่สร้างเดิม)';fill();view('make');}
 setInterval(()=>{if(!$('#jobsView').classList.contains('hide'))renderJobs();},60000);
 fill();updCount();
 </script>
@@ -179,7 +316,6 @@ fill();updCount();
 import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,signOut} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {getFirestore,doc,setDoc,updateDoc,deleteDoc,collection,onSnapshot} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-/* ===== วางค่าตั้งค่า Firebase ของคุณตรงนี้ ===== */
 const firebaseConfig={
  apiKey:"AIzaSyD0jiMkHhI_6dSuGzmnN4FyrpvG4ZYyFjc",
  authDomain:"shipping-label-321.firebaseapp.com",
@@ -188,20 +324,16 @@ const firebaseConfig={
  messagingSenderId:"495729429924",
  appId:"1:495729429924:web:86cfd9b09c47e21f310531"
 };
-/* ================================================ */
 const g=id=>document.getElementById(id);
-if(firebaseConfig.apiKey.startsWith('YOUR')){g('mode').textContent='💾 เก็บในเครื่องนี้ (ยังไม่ได้ตั้งค่า Firebase)';}
-else{
- const app=initializeApp(firebaseConfig),auth=getAuth(app),fs=getFirestore(app);
- const adapter={doc:p=>({set:d=>setDoc(doc(fs,p),d),update:d=>updateDoc(doc(fs,p),d),delete:()=>deleteDoc(doc(fs,p))}),
-  collection:n=>({onSnapshot:(a,b)=>onSnapshot(collection(fs,n),a,b)})};
- onAuthStateChanged(auth,u=>{
-  g('login').style.display=u?'none':'flex';g('lgOut').classList.toggle('hide',!u);
-  u?attachDB(adapter):detachDB();});
- const go=async()=>{g('lgM').textContent='';try{await signInWithEmailAndPassword(auth,g('lgE').value.trim(),g('lgP').value)}catch(e){g('lgM').textContent='อีเมลหรือรหัสผ่านไม่ถูกต้อง'}};
- g('lgB').onclick=go;g('lgP').addEventListener('keydown',e=>{if(e.key==='Enter')go()});
- g('lgOut').onclick=()=>signOut(auth);
-}
+const app=initializeApp(firebaseConfig),auth=getAuth(app),fs=getFirestore(app);
+const adapter={doc:p=>({set:d=>setDoc(doc(fs,p),d),update:d=>updateDoc(doc(fs,p),d),delete:()=>deleteDoc(doc(fs,p))}),
+ collection:n=>({onSnapshot:(a,b)=>onSnapshot(collection(fs,n),a,b)})};
+onAuthStateChanged(auth,u=>{
+ g('login').style.display=u?'none':'flex';g('lgOut').classList.toggle('hide',!u);
+ u?attachDB(adapter):detachDB();});
+const go=async()=>{g('lgM').textContent='';try{await signInWithEmailAndPassword(auth,g('lgE').value.trim(),g('lgP').value)}catch(e){g('lgM').textContent='อีเมลหรือรหัสผ่านไม่ถูกต้อง'}};
+g('lgB').onclick=go;g('lgP').addEventListener('keydown',e=>{if(e.key==='Enter')go()});
+g('lgOut').onclick=()=>signOut(auth);
 </script>
 </body>
 </html>
