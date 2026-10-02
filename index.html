@@ -48,6 +48,9 @@ button.d{color:var(--bad)}
 .rcv .nm{font-weight:600}
 .rcv .ad{white-space:pre-wrap}
 .snd,.rcv{cursor:move;touch-action:none}.snd:hover,.rcv:hover{outline:1px dashed #1f4fd8}
+[data-edit]:empty::before{content:attr(data-ph);opacity:.3}
+[data-edit]:focus{outline:1.5px solid #1f4fd8;outline-offset:2px;background:#1f4fd81a;cursor:text}
+.det [data-edit]{white-space:pre-wrap;min-height:1.4em}
 .hascod .snd{top:23cqw}.hascod .rcv{top:38%}
 .cod{position:absolute;left:4cqw;right:4cqw;top:3cqw;text-align:center;font-size:7.2cqw;line-height:1.3;border:1.1cqw solid #000;border-radius:2cqw;padding:2cqw 2cqw}
 .ems{position:absolute;right:4cqw;top:3cqw;font-size:14cqw;font-weight:800;line-height:1;border:1cqw solid #000;border-radius:2cqw;padding:1.5cqw 3.5cqw}
@@ -70,7 +73,8 @@ button.d{color:var(--bad)}
 .hide{display:none!important}
 #login{position:fixed;inset:0;background:var(--bg);z-index:100;display:none;align-items:center;justify-content:center;padding:16px}
 #login .card{width:100%;max-width:340px}
-@media print{#login{display:none!important}
+@media print{[data-edit]:empty::before{content:''!important}[data-edit]{outline:none!important;background:none!important}
+#login{display:none!important}
 
 @page{size:148mm 210mm;margin:0}
 body{background:#fff}header,.form,.pv>.nopr,#jobsView,.im .h,.im .x{display:none!important}
@@ -93,6 +97,9 @@ main{padding:0;max-width:none}.app{display:block}.pv{position:static}
    <textarea id="sender" rows="4" data-k="sender"></textarea></div>
   <div class="card"><h2>2. ที่อยู่ผู้รับ <button class="b" style="padding:2px 8px;font-size:12px" onclick="resetPos('rcv')">รีเซ็ตตำแหน่ง</button></h2>
    <p class="hint" style="margin:0 0 4px">ลากที่อยู่ผู้ส่ง/ผู้รับบนใบปะหน้าเพื่อเลื่อนตำแหน่งได้</p>
+   <label>วางที่อยู่ทั้งก้อน แล้วกด “แยกอัตโนมัติ”</label>
+   <textarea id="pasteBox" rows="3"></textarea>
+   <button class="b" style="margin-top:6px" onclick="runParse()">แยกอัตโนมัติ</button>
    <div class="r2"><div><label>ชื่อผู้รับ</label><input type="text" data-k="rName"></div>
    <div><label>เบอร์โทร</label><input type="tel" data-k="rPhone"></div></div>
    <label>ที่อยู่</label><textarea rows="4" data-k="rAddr"></textarea></div>
@@ -110,8 +117,7 @@ main{padding:0;max-width:none}.app{display:block}.pv{position:static}
    </div>
    <p class="hint">วางรูปด้วย Ctrl+V ได้เลย • ลากรูปบนใบปะหน้าเพื่อเลื่อน • ลากมุมสี่เหลี่ยมน้ำเงินเพื่อย่อ/ขยาย • คลิกรูปเพื่อเลือกปรับสี</p></div>
   <div class="card"><h2>4. รายละเอียด</h2>
-   <div id="rows"></div>
-   <button class="b" onclick="addRow()">＋ เพิ่มรายการ</button>
+   <textarea rows="3" data-k="detail"></textarea>
    <label class="chk"><input type="checkbox" data-k="cut"> ตัดแยกชิ้น</label></div>
   <div class="card"><h2>5. รายละเอียดอื่นๆ <span class="hint">(เก็บเงินปลายทางกับ EMS เลือกได้อย่างใดอย่างหนึ่ง)</span></h2>
    <label class="chk"><input type="checkbox" data-k="cod"> เก็บเงินปลายทาง</label>
@@ -125,7 +131,7 @@ main{padding:0;max-width:none}.app{display:block}.pv{position:static}
   <p class="hint" id="editInfo"></p>
  </div>
  <div class="pv"><div class="sheet" id="sheet"></div>
-  <p class="hint nopr" style="text-align:center">ตัวอย่างใบปะหน้า ขนาด 14.8 × 21 ซม.</p></div>
+  <p class="hint nopr" style="text-align:center">ขนาด 14.8 × 21 ซม. • คลิกที่ข้อความบนใบปะหน้าเพื่อพิมพ์แก้ได้เลย (ลากเพื่อเลื่อน)</p></div>
 </div>
 <div id="jobsView" class="hide">
  <div class="bar" style="margin-bottom:12px" id="flt"></div>
@@ -143,7 +149,7 @@ const KEY='cover_jobs_v1', DAY=864e5, LIMIT=3*DAY;
 const SK='cover_sender_default',BUILTIN='321Print&Screen\n97/232 ถ.สุวรรณศร  ต.สระแก้ว \nอ.เมืองสระแก้ว  จ.สระแก้ว 27000\nโทร.. 096-262-8716';
 const getDS=()=>{try{return localStorage.getItem(SK)||BUILTIN}catch(e){return BUILTIN}};
 const DEF=()=>({sender:getDS(),
- rName:'',rPhone:'',rAddr:'',pos:{snd:{x:0,y:0},rcv:{x:0,y:0}},rows:[{size:'',qty:'',unit:'แผ่น'}],cut:false,cod:false,codAmt:'',ems:false,note:'',imgs:[]});
+ rName:'',rPhone:'',rAddr:'',pos:{snd:{x:0,y:0},rcv:{x:0,y:0}},detail:'',cut:false,cod:false,codAmt:'',ems:false,note:'',imgs:[]});
 let S=DEF(), sel=null, editId=null, filter='all';
 const $=s=>document.querySelector(s);
 const esc=t=>String(t??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -185,15 +191,9 @@ document.querySelectorAll('[data-k]').forEach(el=>el.addEventListener('input',()
  if(el.dataset.k==='cod'&&S.cod)S.ems=false;if(el.dataset.k==='ems'&&S.ems)S.cod=false;
  document.querySelectorAll('[data-k=cod],[data-k=ems]').forEach(c=>c.checked=!!S[c.dataset.k]);
  renderSheet();$('#codBox').classList.toggle('hide',!S.cod);}));
-function fill(){S.pos=S.pos||{snd:{x:0,y:0},rcv:{x:0,y:0}};if(S.cod&&S.ems)S.ems=false;document.querySelectorAll('[data-k]').forEach(el=>{const v=S[el.dataset.k];el.type==='checkbox'?el.checked=!!v:el.value=v??''});
- $('#codBox').classList.toggle('hide',!S.cod);renderRows();renderThumbs();renderSheet();}
-function renderRows(){$('#rows').innerHTML=S.rows.map((r,i)=>`<div class="row">
- <input type="text" placeholder="ขนาด เช่น 5 ซม." value="${esc(r.size)}" oninput="S.rows[${i}].size=this.value;renderSheet()">
- <input type="number" placeholder="จำนวน" value="${esc(r.qty)}" oninput="S.rows[${i}].qty=this.value;renderSheet()">
- <select onchange="S.rows[${i}].unit=this.value;renderSheet()">${['แผ่น','ชิ้น'].map(u=>`<option ${u===r.unit?'selected':''}>${u}</option>`).join('')}</select>
- <button class="b d" onclick="S.rows.splice(${i},1);if(!S.rows.length)S.rows.push({size:'',qty:'',unit:'แผ่น'});renderRows();renderSheet()">×</button></div>`).join('');}
-function addRow(){S.rows.push({size:'',qty:'',unit:'แผ่น'});renderRows();}
-
+const detOf=d=>d.detail??(d.rows||[]).filter(r=>r.size||r.qty).map(r=>[r.size,r.qty?(r.size?'= ':'')+r.qty+' '+r.unit:''].join(' ').trim()).join('\n');
+function fill(){if(S.detail===undefined)S.detail=detOf(S);delete S.rows;S.pos=S.pos||{snd:{x:0,y:0},rcv:{x:0,y:0}};if(S.cod&&S.ems)S.ems=false;document.querySelectorAll('[data-k]').forEach(el=>{const v=S[el.dataset.k];el.type==='checkbox'?el.checked=!!v:el.value=v??''});
+ $('#codBox').classList.toggle('hide',!S.cod);renderThumbs();renderSheet();}
 /* ---------- images ---------- */
 $('#fi').addEventListener('change',async e=>{await addFiles(e.target.files);e.target.value='';});
 document.addEventListener('paste',async e=>{
@@ -222,22 +222,21 @@ const kern=s=>{const a=s/100*1.5;return `0 ${-a} 0 ${-a} ${1+4*a} ${-a} 0 ${-a} 
 function renderSheet(){
  $('#sheet').classList.toggle('hascod',!!S.cod);
  const lines=S.sender.split('\n');
- const dets=S.rows.filter(r=>r.size||r.qty).map(r=>`${esc(r.size)}${r.size&&r.qty?' = ':''}${esc(r.qty)}${r.qty?' '+r.unit:''}`);
- if(S.cut&&dets.length)dets.push('(ตัดแยกชิ้น)');
  $('#defs').innerHTML=S.imgs.map(i=>`<filter id="f${i.id}"><feConvolveMatrix order="3" preserveAlpha="true" kernelMatrix="${kern(i.sharp)}"/></filter>`).join('');
- $('#sheet').innerHTML=`<div class="snd" style="transform:translate(${S.pos.snd.x}cqw,${S.pos.snd.y}cqw)">${esc(S.sender)}</div>
- <div class="rcv" style="transform:translate(${S.pos.rcv.x}cqw,${S.pos.rcv.y}cqw)"><span class="pl">กรุณาส่ง..</span><div><div class="nm">${esc(S.rName)} ${esc(S.rPhone)}</div><div class="ad">${esc(S.rAddr)}</div></div></div>
+ $('#sheet').innerHTML=`<div class="snd" style="transform:translate(${S.pos.snd.x}cqw,${S.pos.snd.y}cqw)" data-edit="sender" data-ph="ที่อยู่ผู้ส่ง">${esc(S.sender)}</div>
+ <div class="rcv" style="transform:translate(${S.pos.rcv.x}cqw,${S.pos.rcv.y}cqw)"><span class="pl">กรุณาส่ง..</span><div><div class="nm"><span data-edit="rName" data-ph="ชื่อผู้รับ">${esc(S.rName)}</span> <span data-edit="rPhone" data-ph="เบอร์โทร">${esc(S.rPhone)}</span></div><div class="ad" data-edit="rAddr" data-ph="ที่อยู่ผู้รับ">${esc(S.rAddr)}</div></div></div>
  ${S.imgs.map(i=>`<div class="im ${i.id===sel?'sel':''}" data-id="${i.id}" style="left:${i.x}%;top:${i.y}%;width:${i.w}%">
   <img src="${i.src}" style="filter:invert(${i.inv/100}) contrast(${i.con}%) brightness(${i.bri}%) ${i.sharp?`url(#f${i.id})`:''}"><i class="h"></i><b class="x">×</b></div>`).join('')}
  ${S.cod?`<div class="cod">เก็บเงินปลายทาง${S.codAmt?' '+esc(Number(S.codAmt).toLocaleString('en-US'))+' บาท':''}</div>`:''}
  ${S.ems?'<div class="ems">EMS</div>':''}
- <div class="det">${dets.join('<br>')}</div>`;}
+ <div class="det"><div data-edit="detail" data-ph="รายละเอียด">${esc((S.detail||'').replace(/\s+$/,''))}</div>${S.cut?'<div>(ตัดแยกชิ้น)</div>':''}</div>`;enableEdit();}
 let drag=null;
 $('#sheet').addEventListener('pointerdown',e=>{
  const im=e.target.closest('.im');
  if(!im){const b=e.target.closest('.snd,.rcv'),key=b&&(b.classList.contains('snd')?'snd':'rcv');
-  if(sel){sel=null;renderThumbs();renderSheet()}
-  if(key){const el=$('#sheet .'+key);drag={mode:'blk',key,el,sx:e.clientX,sy:e.clientY,ox:S.pos[key].x,oy:S.pos[key].y,W:$('#sheet').getBoundingClientRect().width};el.setPointerCapture(e.pointerId);e.preventDefault()}
+  if(sel){sel=null;renderThumbs();$('#sheet').querySelectorAll('.im.sel').forEach(x=>x.classList.remove('sel'))}
+  const ed=e.target.closest('[data-edit]');if(ed&&document.activeElement===ed)return;
+  if(key){const el=$('#sheet .'+key);drag={mode:'blk',key,el,ed,moved:false,sx:e.clientX,sy:e.clientY,ox:S.pos[key].x,oy:S.pos[key].y,W:$('#sheet').getBoundingClientRect().width};el.setPointerCapture(e.pointerId);e.preventDefault()}
   return}
  const i=S.imgs.find(a=>a.id===im.dataset.id);
  if(e.target.classList.contains('x')){sel=i.id;delImg();return}
@@ -246,11 +245,23 @@ $('#sheet').addEventListener('pointerdown',e=>{
  drag={i,im,mode:e.target.classList.contains('h')?'rs':'mv',sx:e.clientX,sy:e.clientY,x:i.x,y:i.y,w:i.w,W:r.width,H:r.height};
  im.setPointerCapture(e.pointerId);e.preventDefault();});
 $('#sheet').addEventListener('pointermove',e=>{if(!drag)return;const d=drag;
- if(d.mode==='blk'){const x=+(d.ox+(e.clientX-d.sx)/d.W*100).toFixed(2),y=+(d.oy+(e.clientY-d.sy)/d.W*100).toFixed(2);S.pos[d.key]={x,y};d.el.style.transform=`translate(${x}cqw,${y}cqw)`;return}
+ if(d.mode==='blk'){if(!d.moved&&Math.hypot(e.clientX-d.sx,e.clientY-d.sy)<5)return;d.moved=true;const x=+(d.ox+(e.clientX-d.sx)/d.W*100).toFixed(2),y=+(d.oy+(e.clientY-d.sy)/d.W*100).toFixed(2);S.pos[d.key]={x,y};d.el.style.transform=`translate(${x}cqw,${y}cqw)`;return}
  const dx=(e.clientX-d.sx)/d.W*100,dy=(e.clientY-d.sy)/d.H*100;
  if(d.mode==='mv'){d.i.x=+(d.x+dx).toFixed(2);d.i.y=+(d.y+dy).toFixed(2);d.im.style.left=d.i.x+'%';d.im.style.top=d.i.y+'%'}
  else{d.i.w=Math.max(5,Math.min(100,+(d.w+dx).toFixed(2)));d.im.style.width=d.i.w+'%';$('[data-i=w]').value=d.i.w;$('#v_w').textContent=Math.round(d.i.w)}});
-['pointerup','pointercancel'].forEach(t=>$('#sheet').addEventListener(t,()=>{drag=null}));
+['pointerup','pointercancel'].forEach(t=>$('#sheet').addEventListener(t,e=>{if(e.type==='pointerup'&&drag&&drag.mode==='blk'&&!drag.moved&&drag.ed)focusAt(drag.ed,e.clientX,e.clientY);drag=null}));
+function enableEdit(){$('#sheet').querySelectorAll('[data-edit]').forEach(el=>{try{el.contentEditable='plaintext-only'}catch(e){el.contentEditable='true'}el.spellcheck=false});}
+function focusAt(el,x,y){el.focus();let r=null;
+ if(document.caretPositionFromPoint){const p=document.caretPositionFromPoint(x,y);if(p){r=document.createRange();r.setStart(p.offsetNode,p.offset)}}
+ else if(document.caretRangeFromPoint)r=document.caretRangeFromPoint(x,y);
+ if(r&&el.contains(r.startContainer)){r.collapse(true);const g=getSelection();g.removeAllRanges();g.addRange(r)}}
+$('#sheet').addEventListener('input',e=>{const el=e.target.closest('[data-edit]');if(!el)return;const k=el.dataset.edit;
+ let v=el.innerText.replace(/\u200b/g,'');if(k==='rName'||k==='rPhone')v=v.replace(/\n/g,' ');v=v.replace(/\n+$/,'');
+ if(!v.trim())el.innerHTML='';S[k]=v;const f=document.querySelector('[data-k="'+k+'"]');if(f)f.value=v;});
+$('#sheet').addEventListener('paste',e=>{const el=e.target.closest('[data-edit]');if(!el)return;e.preventDefault();
+ document.execCommand('insertText',false,e.clipboardData.getData('text/plain')||'');});
+$('#sheet').addEventListener('keydown',e=>{const el=e.target.closest('[data-edit]');if(el&&e.key==='Enter'&&(el.dataset.edit==='rName'||el.dataset.edit==='rPhone'))e.preventDefault();});
+
 
 /* ---------- jobs ---------- */
 async function createJob(){
@@ -261,7 +272,7 @@ async function createJob(){
  $('#editInfo').textContent='บันทึกงานแล้ว — กำลังแก้ไขงานนี้ (กด "ล้างฟอร์ม" เพื่อเริ่มงานใหม่)';updCount();
  setTimeout(printSheet,150);}
 function printSheet(){
- const sh=$('#sheet').cloneNode(true);sh.querySelectorAll('.sel').forEach(e=>e.classList.remove('sel'));
+ const sh=$('#sheet').cloneNode(true);sh.querySelectorAll('.sel').forEach(e=>e.classList.remove('sel'));sh.querySelectorAll('[contenteditable]').forEach(e=>e.removeAttribute('contenteditable'));sh.querySelectorAll('[data-ph]').forEach(e=>e.removeAttribute('data-ph'));
  const html=`<!DOCTYPE html><html lang="th"><head><meta charset="utf-8"><title>ใบปะหน้า</title><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600;700;800&display=swap" rel="stylesheet"><style>${document.querySelector('style').textContent}
 @media screen{body{background:#ddd}.sheet{width:148mm;height:210mm;margin:0 auto}}</style></head><body><svg width="0" height="0" style="position:absolute"><defs>${$('#defs').innerHTML}</defs></svg><main>${sh.outerHTML}</main><script>addEventListener('load',()=>setTimeout(()=>print(),600))<\/script></body></html>`;
  let w=null;try{w=window.open('','_blank')}catch(e){}
@@ -274,7 +285,16 @@ function saveDefSender(){const t=S.sender;try{localStorage.setItem(SK,t)}catch(e
  if(DB)DB.doc('settings/sender').set({text:t}).catch(()=>{});toast('บันทึกที่อยู่ผู้ส่งเป็นค่าเริ่มต้นแล้ว');}
 function watchSettings(){return DB.collection('settings').onSnapshot(sn=>{const d=sn.docs.find(x=>x.id==='sender'),t=d&&d.data().text,old=getDS();
  if(t&&t!==old){try{localStorage.setItem(SK,t)}catch(e){}if(!editId&&S.sender===old){S.sender=t;fill()}}},()=>{});}
-function newForm(){S=DEF();sel=null;editId=null;$('#editInfo').textContent='';fill();}
+function parseAddr(t){
+ let phones=[],txt=(t||'').replace(/\r/g,'');
+ txt=txt.replace(/(?:(?:เบอร์(?:โทร)?|โทร(?:ศัพท์)?|tel|mobile|มือถือ)\.*\s*:?\s*)?(\+?66[\s\-]?|0)\d[\d\s\-]{6,11}\d/gi,m=>{phones.push(m.replace(/^[^\d+]*/,'').replace(/\D/g,'').replace(/^66/,'0'));return ''});
+ let lines=txt.split('\n').map(l=>l.replace(/^(ชื่อ|ผู้รับ|ที่อยู่|ส่งถึง)\s*[:：]?\s*/,'').replace(/[\s,;]+$/,'').trim()).filter(Boolean);
+ let name='';
+ if(lines.length&&!/\d|เลขที่|ซอย|ซ\.|ถนน|ถ\.|หมู่|ม\.|ตำบล|ต\.|อำเภอ|อ\.|จังหวัด|จ\.|แขวง|เขต|กทม/.test(lines[0])||(lines.length>1&&/^(นาย|นาง|นางสาว|น\.ส\.|คุณ|ด\.ช\.|ด\.ญ\.|หจก|บจก|บริษัท|ร้าน)/.test(lines[0]))){name=lines.shift();}
+ return {name,phone:[...new Set(phones)].join(' / '),addr:lines.join('\n')};}
+function runParse(){const el=$('#pasteBox'),t=el.value;if(!t.trim())return;const r=parseAddr(t);
+ S.rName=r.name;S.rPhone=r.phone;S.rAddr=r.addr;fill();toast(r.phone?'แยกชื่อ เบอร์ ที่อยู่แล้ว — ตรวจสอบความถูกต้องอีกครั้ง':'แยกแล้ว แต่ไม่พบเบอร์โทร');}
+function newForm(){$('#pasteBox').value='';S=DEF();sel=null;editId=null;$('#editInfo').textContent='';fill();}
 function updCount(){const n=load().filter(j=>j.status!=='sent').length;$('#cnt').textContent=n?`(${n} ยังไม่ส่ง)`:'';}
 function fmt(t){return new Date(t).toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'})}
 function remain(j){const left=j.createdAt+LIMIT-Date.now();
@@ -288,7 +308,7 @@ function renderJobs(){
  $('#flt').innerHTML=Object.entries(F).map(([k,[l,n]])=>`<button class="tab ${filter===k?'on':''}" onclick="filter='${k}';renderJobs()">${l} (${n})</button>`).join('');
  const list=all.filter(j=>filter==='all'||(filter==='pending'&&j.status!=='sent')||(filter==='late'&&late(j))||(filter==='sent'&&j.status==='sent'));
  $('#jobList').innerHTML=list.length?list.map(j=>{const d=j.data,L=late(j);
-  const sum=d.rows.filter(r=>r.size||r.qty).map(r=>`${esc(r.size)} ${r.qty?'× '+esc(r.qty)+' '+r.unit:''}`).join(', ');
+  const sum=esc(detOf(d)).replace(/\n/g,', ');
   return `<div class="card job ${L?'late':''}"><img class="t" src="${d.imgs[0]?.src||'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=='}">
   <div><div><b>${esc(d.rName)||'(ไม่มีชื่อ)'}</b> ${esc(d.rPhone)}</div>
   <div class="hint">${esc(d.rAddr.replace(/\n/g,' '))}</div>
@@ -307,8 +327,8 @@ function delJob(id){
  pendDel=id;renderJobs();setTimeout(()=>{if(pendDel===id){pendDel=null;renderJobs()}},4000);}
 function toast(m){let t=$('#toast');if(!t){t=document.createElement('div');t.id='toast';t.style.cssText='position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:#1d2330;color:#fff;padding:10px 16px;border-radius:10px;z-index:99;max-width:90%;font-size:14px';document.body.appendChild(t)}
  t.textContent=m;t.style.display='block';clearTimeout(t._t);t._t=setTimeout(()=>t.style.display='none',3500);}
-function openJob(id){const j=load().find(a=>a.id===id);S=Object.assign(DEF(),JSON.parse(JSON.stringify(j.data)));editId=id;sel=null;
- $('#editInfo').textContent='กำลังแก้ไขงานที่บันทึกไว้ (เวลานับ 3 วันยังนับจากวันที่สร้างเดิม)';fill();view('make');}
+function openJob(id){const j=load().find(a=>a.id===id);const dd=JSON.parse(JSON.stringify(j.data));if(dd.detail===undefined)dd.detail=detOf(dd);delete dd.rows;S=Object.assign(DEF(),dd);editId=id;sel=null;
+ $('#editInfo').textContent='กำลังแก้ไขงานที่บันทึกไว้ (เวลานับ 3 วันยังนับจากวันที่สร้างเดิม)';fill();$('#pasteBox').value='';view('make');}
 setInterval(()=>{if(!$('#jobsView').classList.contains('hide'))renderJobs();},60000);
 fill();updCount();
 </script>
