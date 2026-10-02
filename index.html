@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ระบบทำใบปะหน้า</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#eef0f3;--card:#fff;--ink:#1d2330;--mute:#667085;--line:#d9dde4;--acc:#1f4fd8;--ok:#14803c;--bad:#c62828;--sheetbg:#fff}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12151b;--card:#1b2029;--ink:#e8ebf0;--mute:#98a1b1;--line:#2c3340;--acc:#6b93ff;--ok:#4cc27a;--bad:#ff7b7b}}
+:root[data-theme="dark"]{--bg:#12151b;--card:#1b2029;--ink:#e8ebf0;--mute:#98a1b1;--line:#2c3340;--acc:#6b93ff;--ok:#4cc27a;--bad:#ff7b7b}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 'Noto Sans Thai',Tahoma,sans-serif}
+header{display:flex;gap:8px;align-items:center;padding:12px 16px;background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:env(safe-area-inset-top,0px);z-index:5;flex-wrap:wrap}
+header h1{font-size:18px;margin:0 auto 0 0}
+.tab{border:1px solid var(--line);background:none;color:var(--ink);padding:7px 14px;border-radius:8px;font:inherit;cursor:pointer}
+.tab.on{background:var(--acc);border-color:var(--acc);color:#fff}
+main{max-width:1180px;margin:0 auto;padding:16px}
+.app{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,460px);gap:16px;align-items:start}
+@media(max-width:860px){.app{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+.card h2{font-size:15px;margin:0 0 10px}
+label{display:block;font-size:13px;color:var(--mute);margin:8px 0 3px}
+input[type=text],input[type=tel],input[type=number],textarea,select{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit}
+textarea{resize:vertical}
+.r2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.row{display:grid;grid-template-columns:1.4fr 1fr 1fr auto;gap:6px;margin-bottom:6px}
+.chk{display:flex;align-items:center;gap:8px;color:var(--ink);font-size:14px;margin:8px 0}
+.chk input{width:18px;height:18px}
+button.b{padding:8px 14px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);font:inherit;cursor:pointer}
+button.p{background:var(--acc);border-color:var(--acc);color:#fff;font-weight:600}
+button.d{color:var(--bad)}
+.bar{display:flex;gap:8px;flex-wrap:wrap}
+.sl{display:grid;grid-template-columns:90px 1fr 42px;align-items:center;gap:8px;font-size:13px}
+.sl input{width:100%}
+.th{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.th img{width:44px;height:44px;object-fit:cover;border:2px solid var(--line);border-radius:6px;cursor:pointer;background:#fff}
+.th img.on{border-color:var(--acc)}
+.hint{font-size:12px;color:var(--mute)}
+/* sheet */
+.pv{position:sticky;top:64px}
+.sheet{container-type:inline-size;position:relative;width:100%;aspect-ratio:148/210;background:var(--sheetbg);color:#000;box-shadow:0 2px 14px #0003;overflow:hidden;font-family:'Noto Sans Thai',Tahoma,sans-serif;touch-action:pan-y}
+.snd{position:absolute;left:5cqw;top:5cqw;font-size:3.3cqw;line-height:1.5;white-space:pre-wrap}
+.rcv{position:absolute;left:8cqw;right:6cqw;top:34%;display:grid;grid-template-columns:auto 1fr;gap:1.5cqw;font-size:5.2cqw;line-height:1.5}
+.rcv .pl{font-size:3.4cqw;padding-top:1.6cqw}
+.rcv .nm{font-weight:600}
+.rcv .ad{white-space:pre-wrap}
+.snd,.rcv{cursor:move;touch-action:none}.snd:hover,.rcv:hover{outline:1px dashed #1f4fd8}
+.hascod .snd{top:23cqw}.hascod .rcv{top:38%}
+.cod{position:absolute;left:4cqw;right:4cqw;top:3cqw;text-align:center;font-size:7.2cqw;line-height:1.3;border:1.1cqw solid #000;border-radius:2cqw;padding:2cqw 2cqw}
+.ems{position:absolute;right:4cqw;top:3cqw;font-size:14cqw;font-weight:800;line-height:1;border:1cqw solid #000;border-radius:2cqw;padding:1.5cqw 3.5cqw}
+.det{position:absolute;left:4cqw;right:4cqw;bottom:4cqw;text-align:center;font-size:5.2cqw;line-height:1.4;font-weight:600}
+.im{position:absolute;touch-action:none;cursor:move;line-height:0}
+.im img{width:100%;display:block;pointer-events:none;user-select:none}
+.im.sel{outline:2px dashed #1f4fd8}
+.im .h{display:none;position:absolute;right:-7px;bottom:-7px;width:16px;height:16px;background:#1f4fd8;border-radius:4px;cursor:nwse-resize}
+.im .x{display:none;position:absolute;right:-8px;top:-8px;width:18px;height:18px;background:#c62828;color:#fff;border-radius:50%;font:700 13px/18px sans-serif;text-align:center;cursor:pointer}
+.im.sel .h,.im.sel .x{display:block}
+/* jobs */
+.job{display:grid;grid-template-columns:64px 1fr auto;gap:12px;align-items:center}
+.job .t{width:64px;height:64px;border-radius:8px;background:var(--bg);object-fit:cover;border:1px solid var(--line)}
+.bd{display:inline-block;font-size:12px;font-weight:600;padding:2px 9px;border-radius:99px;margin-right:4px;color:#fff}
+.bd.a{background:var(--acc)}.bd.s{background:var(--ok)}.bd.l{background:var(--bad)}
+.job.late{border-color:var(--bad)}
+.jb{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.jb button{padding:6px 10px;font-size:13px}
+@media(max-width:560px){.job{grid-template-columns:48px 1fr}.job .t{width:48px;height:48px}.jb{grid-column:1/-1;justify-content:flex-start}}
+.hide{display:none!important}
+#login{position:fixed;inset:0;background:var(--bg);z-index:100;display:none;align-items:center;justify-content:center;padding:16px}
+#login .card{width:100%;max-width:340px}
+@media print{#login{display:none!important}
+
+@page{size:148mm 210mm;margin:0}
+body{background:#fff}header,.form,.pv>.nopr,#jobsView,.im .h,.im .x{display:none!important}
+main{padding:0;max-width:none}.app{display:block}.pv{position:static}
+.sheet{box-shadow:none;width:148mm;height:210mm;aspect-ratio:auto}
+.im.sel{outline:none}.snd,.rcv{outline:none!important}
+}
+</style>
+</head>
+<body>
+<header>
+<h1>🏷️ ระบบทำใบปะหน้า</h1><span class="hint" id="mode">💾 เก็บในเครื่องนี้</span><button class="tab hide" id="lgOut">ออกจากระบบ</button>
+<button class="tab on" id="t1" onclick="view('make')">สร้างใบปะหน้า</button>
+<button class="tab" id="t2" onclick="view('jobs')">รายการงาน <span id="cnt"></span></button>
+</header>
+<main>
+<div id="makeView" class="app">
+ <div class="form">
+  <div class="card"><h2>1. ที่อยู่ผู้ส่ง <button class="b" style="padding:2px 8px;font-size:12px" onclick="resetPos('snd')">รีเซ็ตตำแหน่ง</button></h2>
+   <textarea id="sender" rows="4" data-k="sender"></textarea></div>
+  <div class="card"><h2>2. ที่อยู่ผู้รับ <button class="b" style="padding:2px 8px;font-size:12px" onclick="resetPos('rcv')">รีเซ็ตตำแหน่ง</button></h2>
+   <p class="hint" style="margin:0 0 4px">ลากที่อยู่ผู้ส่ง/ผู้รับบนใบปะหน้าเพื่อเลื่อนตำแหน่งได้</p>
+   <div class="r2"><div><label>ชื่อผู้รับ</label><input type="text" data-k="rName"></div>
+   <div><label>เบอร์โทร</label><input type="tel" data-k="rPhone"></div></div>
+   <label>ที่อยู่</label><textarea rows="4" data-k="rAddr"></textarea></div>
+  <div class="card"><h2>3. รูปภาพ</h2>
+   <div class="bar"><button class="b p" onclick="fi.click()">＋ เพิ่มรูป</button>
+   <input type="file" id="fi" accept="image/*" multiple hidden></div>
+   <div class="th" id="thumbs"></div>
+   <div id="imgPanel" class="hide">
+    <label class="chk"><input type="checkbox" id="invChk"> กลับสี (Invert)</label>
+    <div class="sl"><span>ความคมชัด</span><input type="range" min="0" max="100" data-i="sharp"><em id="v_sharp"></em></div>
+    <div class="sl"><span>คอนทราสต์</span><input type="range" min="30" max="250" data-i="con"><em id="v_con"></em></div>
+    <div class="sl"><span>ความสว่าง</span><input type="range" min="30" max="200" data-i="bri"><em id="v_bri"></em></div>
+    <div class="sl"><span>ขนาด</span><input type="range" min="5" max="100" data-i="w"><em id="v_w"></em></div>
+    <div class="bar" style="margin-top:8px"><button class="b" onclick="resetImg()">รีเซ็ตค่า</button><button class="b d" onclick="delImg()">ลบรูปนี้</button></div>
+   </div>
+   <p class="hint">วางรูปด้วย Ctrl+V ได้เลย • ลากรูปบนใบปะหน้าเพื่อเลื่อน • ลากมุมสี่เหลี่ยมน้ำเงินเพื่อย่อ/ขยาย • คลิกรูปเพื่อเลือกปรับสี</p></div>
+  <div class="card"><h2>4. รายละเอียด</h2>
+   <div id="rows"></div>
+   <button class="b" onclick="addRow()">＋ เพิ่มรายการ</button>
+   <label class="chk"><input type="checkbox" data-k="cut"> ตัดแยกชิ้น</label></div>
+  <div class="card"><h2>5. รายละเอียดอื่นๆ <span class="hint">(เก็บเงินปลายทางกับ EMS เลือกได้อย่างใดอย่างหนึ่ง)</span></h2>
+   <label class="chk"><input type="checkbox" data-k="cod"> เก็บเงินปลายทาง</label>
+   <div id="codBox"><label>ยอดเก็บเงินปลายทาง (บาท)</label><input type="number" data-k="codAmt" min="0"></div>
+   <label class="chk"><input type="checkbox" data-k="ems"> ส่งแบบ EMS</label>
+   <label>หมายเหตุ</label><input type="text" data-k="note"></div>
+  <div class="bar">
+   <button class="b p" onclick="createJob()">🖨️ สร้างใบปะหน้า (บันทึกเป็นงาน)</button>
+   <button class="b" onclick="printSheet()">พิมพ์อย่างเดียว</button>
+   <button class="b" onclick="newForm()">ล้างฟอร์ม</button></div>
+  <p class="hint" id="editInfo"></p>
+ </div>
+ <div class="pv"><div class="sheet" id="sheet"></div>
+  <p class="hint nopr" style="text-align:center">ตัวอย่างใบปะหน้า ขนาด 14.8 × 21 ซม.</p></div>
+</div>
+<div id="jobsView" class="hide">
+ <div class="bar" style="margin-bottom:12px" id="flt"></div>
+ <div id="mig"></div><div id="jobList"></div>
+</div>
+</main>
+<div id="login"><div class="card"><h2>เข้าสู่ระบบ</h2>
+<label>อีเมล</label><input type="text" id="lgE" autocomplete="username">
+<label>รหัสผ่าน</label><input type="password" id="lgP" autocomplete="current-password" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit">
+<p class="hint" id="lgM" style="color:var(--bad)"></p>
+<button class="b p" id="lgB" style="width:100%">เข้าสู่ระบบ</button></div></div>
+<svg width="0" height="0" style="position:absolute"><defs id="defs"></defs></svg>
+<script>
+const KEY='cover_jobs_v1', DAY=864e5, LIMIT=3*DAY;
+const DEF=()=>({sender:'321Print&Screen\n97/232 ถ.สุวรรณศร ต.สระแก้ว\nอ.เมืองสระแก้ว จ.สระแก้ว 27000\nโทร.. 096-262-8716',
+ rName:'',rPhone:'',rAddr:'',pos:{snd:{x:0,y:0},rcv:{x:0,y:0}},rows:[{size:'',qty:'',unit:'แผ่น'}],cut:false,cod:false,codAmt:'',ems:false,note:'',imgs:[]});
+let S=DEF(), sel=null, editId=null, filter='all';
+const $=s=>document.querySelector(s);
+const esc=t=>String(t??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const localLoad=()=>{try{return JSON.parse(localStorage.getItem(KEY)||'[]')}catch(e){return[]}};
+let DB=null,RAWJ=[],IMGS={};
+function load(){if(!DB)return localLoad();
+ return RAWJ.map(j=>({...j,data:{...j.data,imgs:(j.data.imgs||[]).map(i=>({...i,src:IMGS[i.id]||''}))}})).sort((a,b)=>b.createdAt-a.createdAt);}
+function refreshJobs(){updCount();if(!$('#jobsView').classList.contains('hide'))renderJobs();}
+async function saveJob(job){
+ if(!DB){const j=localLoad(),k=j.findIndex(a=>a.id===job.id);k>=0?j[k]=job:j.unshift(job);return store(j)}
+ try{
+  for(const i of job.data.imgs)if(IMGS[i.id]!==i.src)await DB.doc('jobimgs/'+i.id).set({src:i.src,jobId:job.id});
+  const old=RAWJ.find(a=>a.id===job.id),keep=new Set(job.data.imgs.map(i=>i.id));
+  for(const i of(old?.data.imgs||[]))if(!keep.has(i.id))await DB.doc('jobimgs/'+i.id).delete();
+  const d=JSON.parse(JSON.stringify(job.data));d.imgs=d.imgs.map(({src,...r})=>r);
+  await DB.doc('jobs/'+job.id).set({createdAt:job.createdAt,status:job.status,sentAt:job.sentAt,data:d});return true;
+ }catch(e){toast('บันทึกไม่สำเร็จ: '+(e.message||e.code));return false}}
+async function removeJob(id){
+ if(!DB){store(localLoad().filter(j=>j.id!==id));renderJobs();return}
+ try{const j=RAWJ.find(a=>a.id===id);for(const i of(j?.data.imgs||[]))await DB.doc('jobimgs/'+i.id).delete();await DB.doc('jobs/'+id).delete()}
+ catch(e){toast('ลบไม่สำเร็จ: '+(e.message||e.code))}}
+async function importLocal(){const L=localLoad();let n=0;
+ for(const j of L){if(RAWJ.find(a=>a.id===j.id))continue;if(await saveJob(j))n++;else return}
+ store([]);toast(`นำเข้า ${n} งานแล้ว`);renderJobs();}
+let UNSUBS=[];
+function attachDB(c){UNSUBS.forEach(f=>f());DB=c;
+ UNSUBS=[DB.collection('jobs').onSnapshot(sn=>{RAWJ=sn.docs.map(d=>({id:d.id,...d.data()}));refreshJobs()},e=>toast('เชื่อมต่อฐานข้อมูลไม่ได้: '+(e.code||''))),
+ DB.collection('jobimgs').onSnapshot(sn=>{IMGS={};sn.docs.forEach(d=>IMGS[d.id]=d.data().src);refreshJobs()},()=>{})];
+ $('#mode').textContent='☁️ ซิงค์ข้ามเครื่อง';refreshJobs();}
+function detachDB(){UNSUBS.forEach(f=>f());UNSUBS=[];DB=null;RAWJ=[];IMGS={};$('#mode').textContent='💾 เก็บในเครื่องนี้';refreshJobs();}
+setInterval(()=>{if(!$('#jobsView').classList.contains('hide'))renderJobs();},60000);
+fill();updCount();
+</script>
+<script type="module">
+import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,signOut} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {getFirestore,doc,setDoc,updateDoc,deleteDoc,collection,onSnapshot} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+/* ===== วางค่าตั้งค่า Firebase ของคุณตรงนี้ ===== */
+const firebaseConfig={
+ apiKey:"AIzaSyD0jiMkHhI_6dSuGzmnN4FyrpvG4ZYyFjc",
+ authDomain:"shipping-label-321.firebaseapp.com",
+ projectId:"shipping-label-321",
+ storageBucket:"shipping-label-321.firebasestorage.app",
+ messagingSenderId:"495729429924",
+ appId:"1:495729429924:web:86cfd9b09c47e21f310531"
+};
+/* ================================================ */
+const g=id=>document.getElementById(id);
+if(firebaseConfig.apiKey.startsWith('YOUR')){g('mode').textContent='💾 เก็บในเครื่องนี้ (ยังไม่ได้ตั้งค่า Firebase)';}
+else{
+ const app=initializeApp(firebaseConfig),auth=getAuth(app),fs=getFirestore(app);
+ const adapter={doc:p=>({set:d=>setDoc(doc(fs,p),d),update:d=>updateDoc(doc(fs,p),d),delete:()=>deleteDoc(doc(fs,p))}),
+  collection:n=>({onSnapshot:(a,b)=>onSnapshot(collection(fs,n),a,b)})};
+ onAuthStateChanged(auth,u=>{
+  g('login').style.display=u?'none':'flex';g('lgOut').classList.toggle('hide',!u);
+  u?attachDB(adapter):detachDB();});
+ const go=async()=>{g('lgM').textContent='';try{await signInWithEmailAndPassword(auth,g('lgE').value.trim(),g('lgP').value)}catch(e){g('lgM').textContent='อีเมลหรือรหัสผ่านไม่ถูกต้อง'}};
+ g('lgB').onclick=go;g('lgP').addEventListener('keydown',e=>{if(e.key==='Enter')go()});
+ g('lgOut').onclick=()=>signOut(auth);
+}
+</script>
+</body>
+</html>
