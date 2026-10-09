@@ -41,8 +41,8 @@ button.d{color:var(--bad)}
 .th img.on{border-color:var(--acc)}
 .hint{font-size:12px;color:var(--mute)}
 /* sheet */
-.pv{position:sticky;top:64px}
-.sheet{container-type:inline-size;position:relative;width:min(100%,max(260px,calc((100dvh - 210px)*.7048)));margin:0 auto;aspect-ratio:148/210;background:var(--sheetbg);color:#000;box-shadow:0 2px 14px #0003;overflow:hidden;font-family:'Noto Sans Thai',Tahoma,sans-serif;touch-action:pan-y}
+.pv{position:static}
+.sheet{container-type:inline-size;position:relative;width:min(100%,max(280px,calc((100dvh - 236px)*.7048)));margin:0 auto;aspect-ratio:148/210;background:var(--sheetbg);color:#000;box-shadow:0 2px 14px #0003;overflow:hidden;font-family:'Noto Sans Thai',Tahoma,sans-serif;touch-action:pan-y}
 .snd{position:absolute;left:5cqw;top:5cqw;font-size:3.3cqw;line-height:1.5;white-space:pre-wrap}
 .rcv{position:absolute;left:8cqw;right:6cqw;top:34%;display:grid;grid-template-columns:auto 1fr;gap:1.5cqw;font-size:5.2cqw;line-height:1.5}
 .rcv .pl{font-size:3.4cqw;padding-top:1.6cqw}
@@ -85,6 +85,13 @@ main{padding:0;max-width:none}.app{display:block}.pv{position:static}
 .im.sel{outline:none}.snd,.rcv,.det{outline:none!important}
 }
 .tt{width:100%;border-collapse:collapse;font-size:13px}.tt th,.tt td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}.tt td.nm{white-space:normal}
+.form{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:stretch}
+.form .card{margin-bottom:0;padding:11px 12px;min-width:0}
+.form .card h2{margin:0 0 6px}
+.form textarea{font-size:14px;line-height:1.4;padding:7px 9px}
+.form label{margin:6px 0 3px}
+@media(max-width:860px){.form{grid-template-columns:1fr}.form .card{grid-column:auto!important}}
+.pv .bar .b{padding:7px 11px;font-size:13.5px}
 </style>
 </head>
 <body>
@@ -102,8 +109,8 @@ main{padding:0;max-width:none}.app{display:block}.pv{position:static}
    <textarea id="sender" rows="4" data-k="sender"></textarea></div>
   <div class="card"><h2>2. ที่อยู่ผู้รับ <button class="b" style="padding:2px 8px;font-size:12px" onclick="resetPos('rcv')">รีเซ็ตตำแหน่ง</button></h2>
    <p class="hint" style="margin:0 0 4px">พิมพ์หรือวางข้อความทั้งก้อนได้เลย (ชื่อ เบอร์โทร ที่อยู่) • ลากที่อยู่ผู้ส่ง/ผู้รับบนใบปะหน้าเพื่อเลื่อนตำแหน่งได้</p>
-   <textarea rows="6" data-k="rAddr"></textarea></div>
-  <div class="card"><h2>3. รูปภาพ</h2>
+   <textarea rows="4" data-k="rAddr"></textarea></div>
+  <div class="card" style="grid-column:1/-1;order:5"><h2>3. รูปภาพ</h2>
    <div class="bar"><button class="b p" onclick="fi.click()">＋ เพิ่มรูป</button>
    <input type="file" id="fi" accept="image/*" multiple hidden></div>
    <div class="th" id="thumbs"></div>
@@ -116,10 +123,10 @@ main{padding:0;max-width:none}.app{display:block}.pv{position:static}
     <div class="bar" style="margin-top:8px"><button class="b" onclick="resetImg()">รีเซ็ตค่า</button><button class="b d" onclick="delImg()">ลบรูปนี้</button></div>
    </div>
    <p class="hint">วางรูปด้วย Ctrl+V ได้เลย • ลากรูปบนใบปะหน้าเพื่อเลื่อน • ลากมุมสี่เหลี่ยมน้ำเงินเพื่อย่อ/ขยาย • คลิกรูปเพื่อเลือกปรับสี</p></div>
-  <div class="card"><h2>4. รายละเอียด <button class="b" style="padding:2px 8px;font-size:12px" onclick="resetPos('det')">รีเซ็ตตำแหน่ง</button></h2>
+  <div class="card" style="order:3"><h2>4. รายละเอียด <button class="b" style="padding:2px 8px;font-size:12px" onclick="resetPos('det')">รีเซ็ตตำแหน่ง</button></h2>
    <textarea rows="3" data-k="detail"></textarea>
    <label class="chk"><input type="checkbox" data-k="cut"> ตัดแยกชิ้น</label></div>
-  <div class="card"><h2>5. รายละเอียดอื่นๆ <span class="hint">(เก็บเงินปลายทางกับ EMS เลือกได้อย่างใดอย่างหนึ่ง)</span></h2>
+  <div class="card" style="order:4"><h2>5. รายละเอียดอื่นๆ <span class="hint">(เก็บเงินปลายทางกับ EMS เลือกได้อย่างใดอย่างหนึ่ง)</span></h2>
    <label class="chk"><input type="checkbox" data-k="cod"> เก็บเงินปลายทาง</label>
    <div id="codBox"><label>ยอดเก็บเงินปลายทาง (บาท)</label><input type="number" data-k="codAmt" min="0"></div>
    <label class="chk"><input type="checkbox" data-k="ems"> ส่งแบบ EMS</label>
