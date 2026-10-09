@@ -74,7 +74,8 @@ button.d{color:var(--bad)}
 .hide{display:none!important}
 #login{position:fixed;inset:0;background:var(--bg);z-index:100;display:none;align-items:center;justify-content:center;padding:16px}
 #login .card{width:100%;max-width:340px}
-@media print{[data-edit]:empty::before{content:''!important}[data-edit]{outline:none!important;background:none!important}
+@media print{
+[data-edit]:empty::before{content:''!important}[data-edit]{outline:none!important;background:none!important}
 #login{display:none!important}
 
 @page{size:148mm 210mm;margin:0}
@@ -83,6 +84,7 @@ main{padding:0;max-width:none}.app{display:block}.pv{position:static}
 .sheet{box-shadow:none;width:148mm;height:210mm;aspect-ratio:auto}
 .im.sel{outline:none}.snd,.rcv,.det{outline:none!important}
 }
+.tt{width:100%;border-collapse:collapse;font-size:13px}.tt th,.tt td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}.tt td.nm{white-space:normal}
 </style>
 </head>
 <body>
@@ -91,6 +93,7 @@ main{padding:0;max-width:none}.app{display:block}.pv{position:static}
 <button class="tab on" id="t1" onclick="view('make')">สร้างใบปะหน้า</button>
 <button class="tab" id="t2" onclick="view('jobs')">รายการงาน <span id="cnt"></span></button>
 <button class="tab" id="t3" onclick="view('pdf')">แก้ไข PDF</button>
+<button class="tab" id="t4" onclick="view('trk')">แยกเลขพัสดุ</button>
 </header>
 <main>
 <div id="makeView" class="app">
@@ -129,6 +132,14 @@ main{padding:0;max-width:none}.app{display:block}.pv{position:static}
  </div>
  <div class="pv"><div class="sheet" id="sheet"></div>
   <p class="hint nopr" style="text-align:center">ขนาด 14.8 × 21 ซม. • คลิกที่ข้อความบนใบปะหน้าเพื่อพิมพ์แก้ได้เลย (ลากเพื่อเลื่อน)</p></div>
+</div>
+<div id="trkView" class="hide">
+ <div class="card" id="trkDrop" style="border:2px dashed var(--line);text-align:center;padding:26px 14px">
+  <h2 style="margin:0 0 6px">แยกเลขพัสดุจากใบส่งมอบ PDF</h2>
+  <p class="hint" style="margin:0 0 10px">ลากไฟล์ PDF ใบส่งมอบ (SPX) มาวางที่นี่ หรือกดเลือกไฟล์ — เลือกได้หลายไฟล์พร้อมกัน ไฟล์ไม่ถูกอัปโหลดออกจากเครื่อง</p>
+  <button class="b p" id="trkPick">📄 เลือกไฟล์ PDF</button><input type="file" id="trkIn" accept="application/pdf" multiple hidden>
+  <div class="hint" id="trkMsg" style="margin-top:8px"></div></div>
+ <div id="trkDbg"></div><div id="trkOut"></div>
 </div>
 <div id="jobsView" class="hide">
  <div class="bar" style="margin-bottom:12px" id="flt"></div>
@@ -442,7 +453,7 @@ const localLoad=()=>{try{return JSON.parse(localStorage.getItem(KEY)||'[]')}catc
 let DB=null,RAWJ=[],IMGS={};
 function load(){if(!DB)return localLoad();
  return RAWJ.map(j=>({...j,data:{...j.data,imgs:(j.data.imgs||[]).map(i=>({...i,src:IMGS[i.id]||''}))}})).sort((a,b)=>b.createdAt-a.createdAt);}
-function refreshJobs(){updCount();if(!$('#jobsView').classList.contains('hide'))renderJobs();}
+function refreshJobs(){updCount();if(!$('#jobsView').classList.contains('hide'))renderJobs();if(!$('#trkView').classList.contains('hide'))renderTrk();}
 async function saveJob(job){
  if(!DB){const j=localLoad(),k=j.findIndex(a=>a.id===job.id);k>=0?j[k]=job:j.unshift(job);return store(j)}
  try{
@@ -450,7 +461,7 @@ async function saveJob(job){
   const old=RAWJ.find(a=>a.id===job.id),keep=new Set(job.data.imgs.map(i=>i.id));
   for(const i of(old?.data.imgs||[]))if(!keep.has(i.id))await DB.doc('jobimgs/'+i.id).delete();
   const d=JSON.parse(JSON.stringify(job.data));d.imgs=d.imgs.map(({src,...r})=>r);
-  await DB.doc('jobs/'+job.id).set({createdAt:job.createdAt,status:job.status,sentAt:job.sentAt,data:d});return true;
+  await DB.doc('jobs/'+job.id).set({createdAt:job.createdAt,status:job.status,sentAt:job.sentAt,tracking:job.tracking||'',data:d});return true;
  }catch(e){toast('บันทึกไม่สำเร็จ: '+(e.message||e.code));return false}}
 async function removeJob(id){
  if(!DB){store(localLoad().filter(j=>j.id!==id));renderJobs();return}
@@ -469,8 +480,8 @@ const store=j=>{try{localStorage.setItem(KEY,JSON.stringify(j));return true}catc
 
 function view(v){$('main').classList.toggle('hide',v==='pdf');$('#pdfView').classList.toggle('hide',v!=='pdf');
  $('#makeView').classList.toggle('hide',v!=='make');$('#jobsView').classList.toggle('hide',v!=='jobs');
- $('#t1').classList.toggle('on',v==='make');$('#t2').classList.toggle('on',v==='jobs');$('#t3').classList.toggle('on',v==='pdf');
- if(v==='jobs')renderJobs();
+ $('#t1').classList.toggle('on',v==='make');$('#t2').classList.toggle('on',v==='jobs');$('#t3').classList.toggle('on',v==='pdf');$('#t4').classList.toggle('on',v==='trk');$('#trkView').classList.toggle('hide',v!=='trk');
+ if(v==='jobs')renderJobs();if(v==='trk')renderTrk();
  if(v==='pdf'){const f=$('#pdfFrame');f.onload=()=>{try{f.contentWindow.focus()}catch(e){}};try{f.contentWindow.focus()}catch(e){}if(!f.getAttribute('srcdoc'))f.srcdoc=$('#pdfTpl').textContent.replace(/<\\\/script>/g,'<\/script>');}}
 
 /* ---------- form binding ---------- */
@@ -596,10 +607,108 @@ function renderJobs(){
   <div class="hint">${esc(rl.slice(1).join(' '))}</div>
   <div class="hint">${sum}${d.cut?' • ตัดแยกชิ้น':''}${d.cod?' • COD'+(d.codAmt?' '+esc(d.codAmt):''):''}${d.ems?' • EMS':''}</div>
   <div style="margin-top:4px">${j.status==='sent'?'<span class="bd s">ส่งแล้ว</span>':'<span class="bd a">ออกใบปะหน้าแล้ว</span>'}${L?'<span class="bd l">ล่าช้า</span>':''}
-   <span class="hint">สร้าง ${fmt(j.createdAt)}${j.status==='sent'?` • ส่งเมื่อ ${fmt(j.sentAt)}`:` • ${j.rm.txt} (กำหนด ${fmt(j.createdAt+LIMIT)})`}</span></div></div>
+   <span class="hint">สร้าง ${fmt(j.createdAt)}${j.status==='sent'?` • ส่งเมื่อ ${fmt(j.sentAt)}`:` • ${j.rm.txt} (กำหนด ${fmt(j.createdAt+LIMIT)})`}</span></div>${trkList(j).length?`<div style="margin-top:5px;font-size:13px">📦 <b style="font-family:monospace">${esc(trkList(j).join(', '))}</b> <button class="b" style="padding:1px 8px;font-size:12px" onclick="copyText('${esc(trkList(j).join(', '))}','คัดลอกเลขพัสดุแล้ว')">คัดลอก</button> <button class="b d" style="padding:1px 8px;font-size:12px;${pendUn===j.id?'background:var(--bad);color:#fff;border-color:var(--bad)':''}" onclick="unlinkTrk('${j.id}')">${pendUn===j.id?'กดอีกครั้งเพื่อเอาออก':'เอาเลขออก'}</button></div>`:''}</div>
   <div class="jb">${j.status!=='sent'?`<button class="b p" onclick="setSent('${j.id}')">ส่งแล้ว ✓</button>`:`<button class="b" onclick="setSent('${j.id}',1)">ยกเลิกส่งแล้ว</button>`}
   <button class="b" onclick="openJob('${j.id}')">เปิด/พิมพ์ซ้ำ</button><button class="b d" style="${pendDel===j.id?'background:var(--bad);color:#fff;border-color:var(--bad)':''}" onclick="delJob('${j.id}')">${pendDel===j.id?'กดอีกครั้งเพื่อยืนยันลบ':'ลบ'}</button></div></div>`}).join('')
   :'<p class="hint">ยังไม่มีงานในหมวดนี้</p>';updCount();}
+
+/* ---------- SPX import ---------- */
+const PUA={0xF701:'\u0E34',0xF702:'\u0E35',0xF703:'\u0E36',0xF704:'\u0E37',0xF705:'\u0E48',0xF706:'\u0E49',0xF707:'\u0E4A',0xF708:'\u0E4B',0xF709:'\u0E4C',0xF70A:'\u0E48',0xF70B:'\u0E49',0xF70C:'\u0E4A',0xF70D:'\u0E4B',0xF70E:'\u0E4C',0xF710:'\u0E31',0xF711:'\u0E4D',0xF712:'\u0E47'};
+function fixThai(t){return String(t).replace(/[\uE000-\uF8FF]/g,c=>PUA[c.charCodeAt(0)]||'').replace(/([\u0E48-\u0E4C])([\u0E31\u0E34-\u0E3A\u0E47\u0E4D])/g,'$2$1').replace(/\u0E4D\u0E32/g,'\u0E33').normalize('NFC');}
+function groupLines(items){
+ const rows=[];items.filter(i=>String(i.s).trim()).sort((a,b)=>b.y-a.y||a.x-b.x).forEach(it=>{
+  let r=rows.find(r=>Math.abs(r.y-it.y)<3);if(!r){r={y:it.y,a:[]};rows.push(r)}r.a.push(it)});
+ return rows.sort((a,b)=>b.y-a.y).map(r=>{const a=r.a.sort((p,q)=>p.x-q.x);let out='';
+  a.forEach((it,k)=>{if(k){const pv=a[k-1];out+=(pv.w>0?it.x-(pv.x+pv.w)>1.2:true)?' ':''}out+=fixThai(it.s)});
+  return out.replace(/\s+/g,' ').trim()});}
+function parseSpx(lines){
+ const text=lines.join('\n'),doc=(text.match(/DRT\w+/)||[])[0]||'';
+ let at=null;const dm=text.match(/(\d{1,2}):(\d{2})\s+(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+ if(dm){let y=+dm[5];if(y>2400)y-=543;at=new Date(y,+dm[4]-1,+dm[3],+dm[1],+dm[2]).getTime()}
+ const items=[];let cur=null;
+ for(const line of lines){
+  const t=line.match(/((?:SPX)?TH\d{11,14})(?!\d)/)||line.replace(/\s+/g,'').match(/((?:SPX)?TH\d{11,14})(?!\d)/);
+  if(t){cur={no:t[1],name:'',weight:'',size:'',fee:'',cod:''};items.push(cur);continue}
+  if(/จำนวนรายการ/.test(line)){cur=null;continue}
+  if(!cur)continue;
+  let m;
+  if(m=line.match(/ผู[^\s:：]{0,2}รับ\s*[:：]\s*(.+)$/))cur.name=m[1].trim();
+  if(m=line.match(/\(KG\)\s*[:：]?\s*([\d.]+)/i))cur.weight=m[1];
+  if(m=line.match(/\(cm\)\s*[:：]?\s*([\d.]+(?:\s*[*x×]\s*[\d.]+)+)/i))cur.size=m[1].replace(/\s+/g,'');
+  if(/ค[^\s\d]{0,2}าขนส[^\s\d]{0,2}ง/.test(line)&&(m=line.match(/([\d,]+\.\d{2})\s*$/)))cur.fee=m[1];
+  if(m=line.match(/ยอดเก็บเงินปลายทาง\s*([\d,]+\.\d{2})/))cur.cod=m[1];
+ }
+ if(!items.length){const comp=lines.join('').replace(/\s+/g,'');[...new Set(comp.match(/(?:SPX)?TH\d{11,14}(?!\d)/g)||[])].forEach(no=>items.push({no,name:'',weight:'',size:'',fee:'',cod:''}))}
+ return {doc,at,items,lines};}
+const NZ=s=>String(s||'').normalize('NFC').replace(/\u0E4D\u0E32/g,'\u0E33').replace(/[\u0E48-\u0E4C]/g,'').replace(/^(?:นางสาว|นาย|นาง|น\.ส\.?|นส\.?|คุณ|ดร\.?)/,'').replace(/[\s.,:;()\-_/\\]+/g,'').toLowerCase();
+function sim(a,b){if(!a||!b)return 0;if(a===b)return 1;const m=a.length,n=b.length;let p=Array.from({length:n+1},(_,j)=>j);
+ for(let i=1;i<=m;i++){const c=[i];for(let j=1;j<=n;j++)c[j]=Math.min(p[j]+1,c[j-1]+1,p[j-1]+(a[i-1]===b[j-1]?0:1));p=c}
+ return 1-p[n]/Math.max(m,n)}
+function nameScore(pdfName,jobText){const n=NZ(pdfName);if(n.length<2)return 0;
+ const lines=String(jobText||'').split('\n').map(l=>NZ(l.replace(/[0-9๐-๙+]+/g,' '))).filter(Boolean);
+ if(lines.join('').includes(n))return 1;
+ let best=0;
+ for(const l of lines){
+  if(l.includes(n))return 1;
+  if(l.length>=4&&n.includes(l))best=Math.max(best,0.95);
+  best=Math.max(best,sim(n,l));
+  for(let w=Math.max(2,n.length-2);w<=n.length+2&&w<=l.length;w++)for(let i=0;i+w<=l.length;i++)best=Math.max(best,sim(n,l.slice(i,i+w)));
+ }
+ const pt=String(pdfName).split(/\s+/).map(NZ).filter(x=>x.length>=2),jt=String(jobText||'').replace(/[0-9๐-๙+]+/g,' ').split(/\s+/).map(NZ).filter(x=>x.length>=2);
+ if(pt.length>1&&jt.length){const avg=pt.reduce((a,t)=>a+Math.max(...jt.map(u=>(u.includes(t)||t.includes(u)&&u.length>=3)?1:sim(t,u))),0)/pt.length;best=Math.max(best,avg*0.97)}
+ return +Math.min(1,best).toFixed(3)}
+const trkList=j=>(j.tracking||'').split(/[,\s]+/).filter(Boolean);
+function jobLbl(j){const l=rcvOf(j.data).split('\n').filter(x=>x.trim());return (l[0]||'(ไม่มีข้อมูลผู้รับ)')+' • '+fmt(j.createdAt)}
+async function patchJob(id,patch){
+ if(!DB){const j=localLoad(),x=j.find(a=>a.id===id);if(!x)return;Object.assign(x,patch);store(j);renderJobs();renderTrk();return}
+ try{await DB.doc('jobs/'+id).update(patch)}catch(e){toast('บันทึกไม่สำเร็จ: '+(e.message||e.code))}}
+async function linkTrk(i){const x=TRK[i],jobs=load(),sel=$('#lk'+i),id=sel?sel.value:(candsFor(x,jobs)[0]||{}).id,j=jobs.find(a=>a.id===id);
+ if(!j){toast('ไม่พบงานที่จะผูก');return}
+ const patch={tracking:[...new Set([...trkList(j),x.no])].join(', ')};
+ if(j.status!=='sent'){patch.status='sent';patch.sentAt=x.at||Date.now()}
+ await patchJob(id,patch);toast(j.status!=='sent'?'ผูกเลขพัสดุและย้ายงานไปส่งแล้ว':'ผูกเลขพัสดุกับงานแล้ว');}
+let pendUn=null;
+function unlinkTrk(id){if(pendUn===id){pendUn=null;patchJob(id,{tracking:''});toast('เอาเลขพัสดุออกจากงานแล้ว');return}
+ pendUn=id;renderJobs();setTimeout(()=>{if(pendUn===id){pendUn=null;renderJobs()}},3000)}
+function candsFor(x,jobs,th){th=th||0.7;return jobs.map(j=>({j,s:nameScore(x.name,rcvOf(j.data))})).filter(o=>o.s>=th).sort((a,b)=>b.s-a.s||(+!!a.j.tracking)-(+!!b.j.tracking)||(+(a.j.status==='sent'))-(+(b.j.status==='sent'))||b.j.createdAt-a.j.createdAt).map(o=>({...o.j,_s:o.s}))}
+function allFor(x,jobs){return jobs.map(j=>({...j,_s:nameScore(x.name,rcvOf(j.data))})).sort((a,b)=>(+!!a.tracking)-(+!!b.tracking)||b._s-a._s||b.createdAt-a.createdAt).slice(0,40)}
+const sLbl=j=>j._s>=0.999?'★ ':j._s>=0.7?'≈'+Math.round(j._s*100)+'% ':'';
+function loadPdfJs(){return window.pdfjsLib?Promise.resolve():new Promise((ok,no)=>{const s=document.createElement('script');
+ s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+ s.onload=()=>{pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';ok()};
+ s.onerror=()=>no(new Error('โหลดตัวอ่าน PDF ไม่ได้ (ต้องต่ออินเทอร์เน็ต)'));document.head.appendChild(s)})}
+async function readSpx(file){await loadPdfJs();const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise;let lines=[];
+ for(let n=1;n<=pdf.numPages;n++){const tc=await(await pdf.getPage(n)).getTextContent();
+  lines=lines.concat(groupLines(tc.items.filter(i=>typeof i.str==='string').map(i=>({s:i.str,x:i.transform[4],y:i.transform[5],w:i.width||0}))))}
+ return parseSpx(lines);}
+let TRK=[];
+async function copyText(t,msg){const ok=()=>toast(msg||'คัดลอกแล้ว'),fb=()=>{const a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();try{document.execCommand('copy');ok()}catch(e){toast('คัดลอกไม่สำเร็จ')}a.remove()};
+ try{navigator.clipboard.writeText(t).then(ok,fb)}catch(e){fb()}}
+function trkLines(){return TRK.map(x=>x.name?`${x.no} ${x.name}`:x.no)}
+function renderTrk(){const box=$('#trkOut');if(!TRK.length){box.innerHTML='';return}
+ const jobs=load();
+ box.innerHTML=`<div class="card"><div class="bar" style="margin-bottom:10px"><button class="b p" onclick="copyText(trkLines().join('\\n'),'คัดลอก '+TRK.length+' รายการแล้ว')">คัดลอกทั้งหมด (${TRK.length} รายการ)</button><button class="b" onclick="TRK=[];renderTrk()">ล้างรายการ</button></div>`+
+ TRK.map((x,i)=>{const lj=jobs.find(j=>trkList(j).includes(x.no)),c=lj?[]:candsFor(x,jobs).slice(0,8);
+  const opt=j=>`<option value="${j.id}">${esc(sLbl(j)+jobLbl(j)+(j.tracking?' • มีเลขแล้ว':''))}</option>`,btn=`<button class="b p" style="padding:4px 12px;font-size:13px" onclick="linkTrk(${i})">ผูกเลขกับงาน</button>`;
+  let act='';
+  if(lj)act=`<span class="hint">✓ ผูกกับงาน: ${esc(jobLbl(lj))}</span>`;
+  else if(x.manual)act=`<select id="lk${i}" style="width:auto;max-width:100%;padding:4px 8px">${allFor(x,jobs).map(opt).join('')}</select> ${btn}`;
+  else if(c.length)act=(c.length>1?`<select id="lk${i}" style="width:auto;max-width:100%;padding:4px 8px">${c.map(opt).join('')}</select>`:`<span class="hint">${esc(sLbl(c[0])+jobLbl(c[0])+(c[0].tracking?' • มีเลขแล้ว':''))}</span>`)+` ${btn} <button class="b" style="padding:4px 10px;font-size:12px" onclick="TRK[${i}].manual=1;renderTrk()">เลือกงานอื่น</button>`;
+  else if(jobs.length)act=`<span class="hint">ไม่พบงานที่ชื่อใกล้เคียง</span> <button class="b" style="padding:4px 10px;font-size:12px" onclick="TRK[${i}].manual=1;renderTrk()">เลือกงานเอง</button>`;
+  return `<div style="padding:7px 0;border-top:1px solid var(--line)"><div style="font-size:15px;line-height:1.7">${esc(trkLines()[i])}</div>${act?`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:3px">${act}</div>`:''}</div>`}).join('')+`</div>`;}
+async function takeFiles(files){const fl=[...files].filter(f=>/pdf/i.test(f.type)||/\.pdf$/i.test(f.name));
+ if(!fl.length){toast('กรุณาเลือกไฟล์ PDF');return}
+ $('#trkMsg').textContent='กำลังอ่าน PDF…';$('#trkDbg').innerHTML='';let add=0;
+ for(const f of fl){try{const r=await readSpx(f);
+   if(!r.items.length){const t=r.lines.join('\n');$('#trkDbg').innerHTML=`<div class="card"><b>ไม่พบเลขพัสดุใน ${esc(f.name)}</b><div class="hint">อ่านข้อความได้ ${t.length} ตัวอักษร${t.length?'':' — ไฟล์น่าจะเป็นภาพ ไม่มีข้อความให้อ่าน'}</div><textarea readonly rows="8" style="margin-top:6px">${esc(t.slice(0,2000))}</textarea></div>`;continue}
+   r.items.forEach(it=>{if(!TRK.some(x=>x.no===it.no)){TRK.push({...it,doc:r.doc,at:r.at});add++}})}
+  catch(err){toast('อ่าน PDF ไม่สำเร็จ: '+(err.message||err))}}
+ $('#trkMsg').textContent='';renderTrk();if(add)toast(`เพิ่ม ${add} รายการ`);}
+$('#trkPick').onclick=()=>$('#trkIn').click();
+$('#trkIn').addEventListener('change',e=>{const f=[...e.target.files];e.target.value='';if(f.length)takeFiles(f)});
+const dz=$('#trkDrop');['dragenter','dragover'].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.style.borderColor='var(--acc)'}));
+['dragleave','drop'].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.style.borderColor=''}));
+dz.addEventListener('drop',e=>{if(e.dataTransfer&&e.dataTransfer.files.length)takeFiles(e.dataTransfer.files)});
 async function setSent(id,undo){const st=undo?'issued':'sent',at=undo?null:Date.now();
  if(!DB){const j=localLoad(),x=j.find(a=>a.id===id);x.status=st;x.sentAt=at;store(j);renderJobs();return}
  try{await DB.doc('jobs/'+id).update({status:st,sentAt:at})}catch(e){toast('ไม่สำเร็จ: '+(e.message||e.code))}}
