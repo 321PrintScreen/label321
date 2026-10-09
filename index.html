@@ -42,7 +42,7 @@ button.d{color:var(--bad)}
 .hint{font-size:12px;color:var(--mute)}
 /* sheet */
 .pv{position:sticky;top:64px}
-.sheet{container-type:inline-size;position:relative;width:100%;aspect-ratio:148/210;background:var(--sheetbg);color:#000;box-shadow:0 2px 14px #0003;overflow:hidden;font-family:'Noto Sans Thai',Tahoma,sans-serif;touch-action:pan-y}
+.sheet{container-type:inline-size;position:relative;width:min(100%,max(260px,calc((100dvh - 210px)*.7048)));margin:0 auto;aspect-ratio:148/210;background:var(--sheetbg);color:#000;box-shadow:0 2px 14px #0003;overflow:hidden;font-family:'Noto Sans Thai',Tahoma,sans-serif;touch-action:pan-y}
 .snd{position:absolute;left:5cqw;top:5cqw;font-size:3.3cqw;line-height:1.5;white-space:pre-wrap}
 .rcv{position:absolute;left:8cqw;right:6cqw;top:34%;display:grid;grid-template-columns:auto 1fr;gap:1.5cqw;font-size:5.2cqw;line-height:1.5}
 .rcv .pl{font-size:3.4cqw;padding-top:1.6cqw}
@@ -124,14 +124,14 @@ main{padding:0;max-width:none}.app{display:block}.pv{position:static}
    <div id="codBox"><label>ยอดเก็บเงินปลายทาง (บาท)</label><input type="number" data-k="codAmt" min="0"></div>
    <label class="chk"><input type="checkbox" data-k="ems"> ส่งแบบ EMS</label>
    <label>หมายเหตุ</label><input type="text" data-k="note"></div>
-  <div class="bar">
+ </div>
+ <div class="pv"><div class="sheet" id="sheet"></div>
+  <p class="hint nopr" style="text-align:center">ขนาด 14.8 × 21 ซม. • คลิกที่ข้อความบนใบปะหน้าเพื่อพิมพ์แก้ได้เลย (ลากเพื่อเลื่อน)</p>
+  <div class="nopr" style="margin-top:10px;display:flex;flex-direction:column;align-items:center;gap:6px"><div class="bar" style="justify-content:center">
    <button class="b p" onclick="createJob()">🖨️ สร้างใบปะหน้า (บันทึกเป็นงาน)</button>
    <button class="b" onclick="printSheet()">พิมพ์อย่างเดียว</button>
    <button class="b" onclick="newForm()">ล้างฟอร์ม</button></div>
-  <p class="hint" id="editInfo"></p>
- </div>
- <div class="pv"><div class="sheet" id="sheet"></div>
-  <p class="hint nopr" style="text-align:center">ขนาด 14.8 × 21 ซม. • คลิกที่ข้อความบนใบปะหน้าเพื่อพิมพ์แก้ได้เลย (ลากเพื่อเลื่อน)</p></div>
+  <p class="hint" id="editInfo"></p></div></div>
 </div>
 <div id="trkView" class="hide">
  <div class="card" id="trkDrop" style="border:2px dashed var(--line);text-align:center;padding:26px 14px">
@@ -227,6 +227,7 @@ aside .bt button{justify-content:center;border-radius:12px}
 <label class="b">📂 เปิด PDF<input id="fp" type="file" accept="application/pdf" hidden></label>
 <label class="b">🖼️ เพิ่มรูป<input id="fi" type="file" accept="image/*" hidden></label>
 <button id="pbtn">📋 วางรูป</button>
+<button id="tbtn">🧾 มีบิล</button>
 <div class="nav"><button id="prev" disabled>‹</button><span id="pn">–</span><button id="next" disabled>›</button></div>
 <span style="flex:1"></span>
 <span id="st"></span>
@@ -243,6 +244,7 @@ aside .bt button{justify-content:center;border-radius:12px}
 <h3>ปรับแต่งรูป</h3>
 <div id="hint">กด <kbd>Ctrl</kbd>+<kbd>V</kbd> เพื่อวางรูปลงหน้านี้ หรือลากไฟล์รูปมาวาง แล้วลากย้าย / ลากจุดมุมขวาล่างเพื่อปรับขนาด</div>
 <fieldset id="ctl" disabled>
+<div id="txtBox" hidden><label>ข้อความ</label><input type="text" id="txt" style="width:100%;padding:7px 10px;border:1px solid var(--bd);border-radius:10px;background:var(--bg);color:var(--tx);font:inherit"><div class="r"><input type="checkbox" id="bx"><span>▭ ใส่กรอบ</span></div></div>
 <div class="r"><input type="checkbox" id="inv"><span>🌓 กลับสี (Invert)</span></div>
 <div class="r"><input type="checkbox" id="gray"><span>⚪ ขาวดำ (เกรย์สเกล)</span></div>
 <div class="r"><input type="checkbox" id="thr"><span>🖨️ ขาว/ดำล้วน (ปริ้นเตอร์ความร้อน)</span></div>
@@ -348,6 +350,7 @@ function sync(){
   const f=$('#ctl');f.disabled=!sel;const P=sel?sel.p:P0();
   $('#inv').checked=!!P.inv;$('#gray').checked=!!P.gray;$('#thr').checked=!!P.thr;
   $('#t').value=P.t;$('#bri').value=P.bri;$('#con').value=P.con;
+  const isT=!!(sel&&sel.isText);$('#txtBox').hidden=!isT;if(isT){$('#txt').value=sel.txt;$('#bx').checked=!!sel.box}
   $('#tv').textContent=P.t;$('#bv').textContent=P.bri;$('#cvv').textContent=P.con;
 }
 ['inv','gray','thr'].forEach(k=>$('#'+k).onchange=e=>{if(sel){sel.p[k]=e.target.checked?1:0;proc(sel)}});
@@ -367,6 +370,33 @@ function addImage(file){
   };
   img.onerror=()=>flash('อ่านรูปไม่สำเร็จ');const rd=new FileReader();rd.onload=()=>{img.src=rd.result};rd.readAsDataURL(file);
 }
+function textURL(txt,box){
+  const fs=240,pad=box?48:16,f=`700 ${fs}px "Noto Sans Thai","Sarabun","Leelawadee UI",Tahoma,Thonburi,sans-serif`;
+  const c=document.createElement('canvas'),x=c.getContext('2d');x.font=f;const m=x.measureText(txt);
+  const L=m.actualBoundingBoxLeft||0,R=m.actualBoundingBoxRight||m.width,A=m.actualBoundingBoxAscent||fs*.8,D=m.actualBoundingBoxDescent||fs*.25;
+  c.width=Math.ceil(L+R+pad*2);c.height=Math.ceil(A+D+pad*2);
+  const y=c.getContext('2d');y.font=f;y.fillStyle='#000';y.textBaseline='alphabetic';y.fillText(txt,pad+L,pad+A);
+  if(box){y.lineWidth=16;y.strokeStyle='#000';const r=28,o=8,w=c.width-o*2,h=c.height-o*2;y.beginPath();y.moveTo(o+r,o);y.arcTo(o+w,o,o+w,o+h,r);y.arcTo(o+w,o+h,o,o+h,r);y.arcTo(o,o+h,o,o,r);y.arcTo(o,o,o+w,o,r);y.closePath();y.stroke()}
+  return c.toDataURL('image/png');
+}
+function addText(txt){
+  if(!pages.length){$('#st').textContent='เปิด PDF ก่อน';return}
+  const img=new Image();
+  img.onload=()=>{
+    const p=pages[cur],w=p.w*.26,h=w*img.naturalHeight/img.naturalWidth;
+    const it={img,p:P0(),x:p.w*.05,y:p.h*.04,w,h,isText:true,txt,box:true};
+    p.items.push(it);addEl(it);select(it);
+  };
+  img.src=textURL(txt,true);
+}
+function rebuildText(it){
+  const im=new Image();
+  im.onload=()=>{it.img=im;it.w=it.h*im.naturalWidth/im.naturalHeight;proc(it);place(it)};
+  im.src=textURL(it.txt,it.box);
+}
+$('#tbtn').onclick=()=>addText('มีบิล');
+$('#txt').oninput=e=>{if(sel&&sel.isText){sel.txt=e.target.value.trim()?e.target.value:' ';rebuildText(sel)}};
+$('#bx').onchange=e=>{if(sel&&sel.isText){sel.box=e.target.checked;rebuildText(sel)}};
 function flash(t){const s=$('#st');s.textContent=t;clearTimeout(flash.t);flash.t=setTimeout(()=>s.textContent='',3500)}
 addEventListener('paste',e=>{
   const cd=e.clipboardData;let f=null;
@@ -627,8 +657,8 @@ function parseSpx(lines){
  if(dm){let y=+dm[5];if(y>2400)y-=543;at=new Date(y,+dm[4]-1,+dm[3],+dm[1],+dm[2]).getTime()}
  const items=[];let cur=null;
  for(const line of lines){
-  const t=line.match(/((?:SPX)?TH\d{11,14})(?!\d)/)||line.replace(/\s+/g,'').match(/((?:SPX)?TH\d{11,14})(?!\d)/);
-  if(t){cur={no:t[1],name:'',weight:'',size:'',fee:'',cod:''};items.push(cur);continue}
+  const t=line.match(/((?:SPX)?TH\d{9,14}(?:\s?[A-Z](?![A-Za-z0-9]))?)(?![A-Za-z0-9])/)||line.replace(/\s+/g,'').match(/((?:SPX)?TH\d{9,14}[A-Z]?)(?![A-Za-z0-9])/);
+  if(t){cur={no:t[1].replace(/\s+/g,''),name:'',weight:'',size:'',fee:'',cod:''};items.push(cur);continue}
   if(/จำนวนรายการ/.test(line)){cur=null;continue}
   if(!cur)continue;
   let m;
@@ -638,7 +668,7 @@ function parseSpx(lines){
   if(/ค[^\s\d]{0,2}าขนส[^\s\d]{0,2}ง/.test(line)&&(m=line.match(/([\d,]+\.\d{2})\s*$/)))cur.fee=m[1];
   if(m=line.match(/ยอดเก็บเงินปลายทาง\s*([\d,]+\.\d{2})/))cur.cod=m[1];
  }
- if(!items.length){const comp=lines.join('').replace(/\s+/g,'');[...new Set(comp.match(/(?:SPX)?TH\d{11,14}(?!\d)/g)||[])].forEach(no=>items.push({no,name:'',weight:'',size:'',fee:'',cod:''}))}
+ if(!items.length){const comp=lines.join('\n').replace(/[ \t]+/g,'');[...new Set(comp.match(/(?:SPX)?TH\d{9,14}[A-Z]?(?![A-Za-z0-9])/g)||[])].forEach(no=>items.push({no,name:'',weight:'',size:'',fee:'',cod:''}))}
  return {doc,at,items,lines};}
 const NZ=s=>String(s||'').normalize('NFC').replace(/\u0E4D\u0E32/g,'\u0E33').replace(/[\u0E48-\u0E4C]/g,'').replace(/^(?:นางสาว|นาย|นาง|น\.ส\.?|นส\.?|คุณ|ดร\.?)/,'').replace(/[\s.,:;()\-_/\\]+/g,'').toLowerCase();
 function sim(a,b){if(!a||!b)return 0;if(a===b)return 1;const m=a.length,n=b.length;let p=Array.from({length:n+1},(_,j)=>j);
