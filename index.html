@@ -63,14 +63,14 @@ button.d{color:var(--bad)}
 .im .x{display:none;position:absolute;right:-8px;top:-8px;width:18px;height:18px;background:#c62828;color:#fff;border-radius:50%;font:700 13px/18px sans-serif;text-align:center;cursor:pointer}
 .im.sel .h,.im.sel .x{display:block}
 /* jobs */
-.job{display:grid;grid-template-columns:64px 1fr auto;gap:12px;align-items:center}
+.job{display:grid;grid-template-columns:24px 64px 1fr auto;gap:12px;align-items:center}
 .job .t{width:64px;height:64px;border-radius:8px;background:var(--bg);object-fit:cover;border:1px solid var(--line)}
 .bd{display:inline-block;font-size:12px;font-weight:600;padding:2px 9px;border-radius:99px;margin-right:4px;color:#fff}
 .bd.a{background:var(--acc)}.bd.s{background:var(--ok)}.bd.l{background:var(--bad)}
 .job.late{border-color:var(--bad)}
 .jb{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
 .jb button{padding:6px 10px;font-size:13px}
-@media(max-width:560px){.job{grid-template-columns:48px 1fr}.job .t{width:48px;height:48px}.jb{grid-column:1/-1;justify-content:flex-start}}
+@media(max-width:560px){.job{grid-template-columns:24px 48px 1fr}.job .t{width:48px;height:48px}.jb{grid-column:1/-1;justify-content:flex-start}}
 .hide{display:none!important}
 #login{position:fixed;inset:0;background:var(--bg);z-index:100;display:none;align-items:center;justify-content:center;padding:16px}
 #login .card{width:100%;max-width:340px}
@@ -117,9 +117,7 @@ main{padding:0;max-width:none}.app{display:block}.pv{position:static}
    <div id="imgPanel" class="hide">
     <label class="chk"><input type="checkbox" id="invChk"> กลับสี (Invert)</label>
     <div class="sl"><span>ความคมชัด</span><input type="range" min="0" max="100" data-i="sharp"><em id="v_sharp"></em></div>
-    <div class="sl"><span>คอนทราสต์</span><input type="range" min="30" max="250" data-i="con"><em id="v_con"></em></div>
     <div class="sl"><span>ความสว่าง</span><input type="range" min="30" max="200" data-i="bri"><em id="v_bri"></em></div>
-    <div class="sl"><span>ขนาด</span><input type="range" min="5" max="100" data-i="w"><em id="v_w"></em></div>
     <div class="bar" style="margin-top:8px"><button class="b" onclick="resetImg()">รีเซ็ตค่า</button><button class="b d" onclick="delImg()">ลบรูปนี้</button></div>
    </div>
    <p class="hint">วางรูปด้วย Ctrl+V ได้เลย • ลากรูปบนใบปะหน้าเพื่อเลื่อน • ลากมุมสี่เหลี่ยมน้ำเงินเพื่อย่อ/ขยาย • คลิกรูปเพื่อเลือกปรับสี</p></div>
@@ -149,7 +147,8 @@ main{padding:0;max-width:none}.app{display:block}.pv{position:static}
  <div id="trkDbg"></div><div id="trkOut"></div>
 </div>
 <div id="jobsView" class="hide">
- <div class="bar" style="margin-bottom:12px" id="flt"></div>
+ <div class="bar" style="margin-bottom:10px" id="flt"></div>
+ <div class="bar" id="selBar" style="margin-bottom:12px;align-items:center"><label class="chk" style="margin:0"><input type="checkbox" id="selAll" onchange="selAllToggle(this.checked)"> เลือกทั้งหมดในรายการ</label><button class="b p" id="prtSel" onclick="printJobs()" disabled>🖨️ พิมพ์ที่เลือก (0)</button><span class="hint">ติ๊กเลือกงานที่การ์ด แล้วสั่งพิมพ์พร้อมกัน เรียงตามเวลาที่สร้าง (เก่าไปใหม่)</span></div>
  <div id="mig"></div><div id="jobList"></div>
 </div>
 </main>
@@ -557,17 +556,21 @@ function delImg(){S.imgs=S.imgs.filter(i=>i.id!==sel);sel=S.imgs.at(-1)?.id||nul
 const kern=s=>{const a=s/100*1.5;return `0 ${-a} 0 ${-a} ${1+4*a} ${-a} 0 ${-a} 0`};
 
 /* ---------- sheet ---------- */
+function filtersHTML(imgs){return (imgs||[]).map(i=>`<filter id="f${i.id}"><feConvolveMatrix order="3" preserveAlpha="true" kernelMatrix="${kern(i.sharp)}"/></filter>`).join('')}
+function normD(d){const x={...d};x.sender=x.sender||'';x.rAddr=rcvOf(x);x.imgs=x.imgs||[];x.pos={snd:{x:0,y:0},rcv:{x:0,y:0},det:{x:0,y:0},...(x.pos||{})};if(x.detail===undefined)x.detail=detOf(x);return x}
+function sheetInner(d,selId){const P=d.pos;
+ return `<div class="snd" style="transform:translate(${P.snd.x}cqw,${P.snd.y}cqw)" data-edit="sender" data-ph="ที่อยู่ผู้ส่ง">${esc(d.sender)}</div>
+ <div class="rcv" style="transform:translate(${P.rcv.x}cqw,${P.rcv.y}cqw)"><span class="pl">กรุณาส่ง..</span><div><div class="ad" data-edit="rAddr" data-ph="ชื่อ เบอร์โทร ที่อยู่ผู้รับ">${esc(d.rAddr)}</div></div></div>
+ ${d.imgs.map(i=>`<div class="im ${i.id===selId?'sel':''}" data-id="${i.id}" style="left:${i.x}%;top:${i.y}%;width:${i.w}%">
+  <img src="${i.src}" style="filter:invert(${i.inv/100}) contrast(${i.con}%) brightness(${i.bri}%) ${i.sharp?`url(#f${i.id})`:''}"><i class="h"></i><b class="x">×</b></div>`).join('')}
+ ${d.cod?`<div class="cod">เก็บเงินปลายทาง${d.codAmt?' '+esc(Number(d.codAmt).toLocaleString('en-US'))+' บาท':''}</div>`:''}
+ ${d.ems?'<div class="ems">EMS</div>':''}
+ <div class="det" style="transform:translate(${P.det.x}cqw,${P.det.y}cqw)"><div data-edit="detail" data-ph="รายละเอียด">${esc((d.detail||'').replace(/\s+$/,''))}</div>${d.cut?'<div>(ตัดแยกชิ้น)</div>':''}</div>`}
 function renderSheet(){
  $('#sheet').classList.toggle('hascod',!!S.cod);
- const lines=S.sender.split('\n');
- $('#defs').innerHTML=S.imgs.map(i=>`<filter id="f${i.id}"><feConvolveMatrix order="3" preserveAlpha="true" kernelMatrix="${kern(i.sharp)}"/></filter>`).join('');
- $('#sheet').innerHTML=`<div class="snd" style="transform:translate(${S.pos.snd.x}cqw,${S.pos.snd.y}cqw)" data-edit="sender" data-ph="ที่อยู่ผู้ส่ง">${esc(S.sender)}</div>
- <div class="rcv" style="transform:translate(${S.pos.rcv.x}cqw,${S.pos.rcv.y}cqw)"><span class="pl">กรุณาส่ง..</span><div><div class="ad" data-edit="rAddr" data-ph="ชื่อ เบอร์โทร ที่อยู่ผู้รับ">${esc(S.rAddr)}</div></div></div>
- ${S.imgs.map(i=>`<div class="im ${i.id===sel?'sel':''}" data-id="${i.id}" style="left:${i.x}%;top:${i.y}%;width:${i.w}%">
-  <img src="${i.src}" style="filter:invert(${i.inv/100}) contrast(${i.con}%) brightness(${i.bri}%) ${i.sharp?`url(#f${i.id})`:''}"><i class="h"></i><b class="x">×</b></div>`).join('')}
- ${S.cod?`<div class="cod">เก็บเงินปลายทาง${S.codAmt?' '+esc(Number(S.codAmt).toLocaleString('en-US'))+' บาท':''}</div>`:''}
- ${S.ems?'<div class="ems">EMS</div>':''}
- <div class="det" style="transform:translate(${(S.pos.det||{x:0}).x}cqw,${(S.pos.det||{y:0}).y}cqw)"><div data-edit="detail" data-ph="รายละเอียด">${esc((S.detail||'').replace(/\s+$/,''))}</div>${S.cut?'<div>(ตัดแยกชิ้น)</div>':''}</div>`;enableEdit();}
+ $('#defs').innerHTML=filtersHTML(S.imgs);
+ $('#sheet').innerHTML=sheetInner(normD(S),sel);enableEdit();}
+
 let drag=null;
 $('#sheet').addEventListener('pointerdown',e=>{
  const im=e.target.closest('.im');
@@ -586,7 +589,7 @@ $('#sheet').addEventListener('pointermove',e=>{if(!drag)return;const d=drag;
  if(d.mode==='blk'){if(!d.moved&&Math.hypot(e.clientX-d.sx,e.clientY-d.sy)<5)return;d.moved=true;const x=+(d.ox+(e.clientX-d.sx)/d.W*100).toFixed(2),y=+(d.oy+(e.clientY-d.sy)/d.W*100).toFixed(2);S.pos[d.key]={x,y};d.el.style.transform=`translate(${x}cqw,${y}cqw)`;return}
  const dx=(e.clientX-d.sx)/d.W*100,dy=(e.clientY-d.sy)/d.H*100;
  if(d.mode==='mv'){d.i.x=+(d.x+dx).toFixed(2);d.i.y=+(d.y+dy).toFixed(2);d.im.style.left=d.i.x+'%';d.im.style.top=d.i.y+'%'}
- else{d.i.w=Math.max(5,Math.min(100,+(d.w+dx).toFixed(2)));d.im.style.width=d.i.w+'%';$('[data-i=w]').value=d.i.w;$('#v_w').textContent=Math.round(d.i.w)}});
+ else{d.i.w=Math.max(5,Math.min(100,+(d.w+dx).toFixed(2)));d.im.style.width=d.i.w+'%';}});
 ['pointerup','pointercancel'].forEach(t=>$('#sheet').addEventListener(t,e=>{if(e.type==='pointerup'&&drag&&drag.mode==='blk'&&!drag.moved&&drag.ed)focusAt(drag.ed,e.clientX,e.clientY);drag=null}));
 function enableEdit(){$('#sheet').querySelectorAll('[data-edit]').forEach(el=>{try{el.contentEditable='plaintext-only'}catch(e){el.contentEditable='true'}el.spellcheck=false});}
 function focusAt(el,x,y){el.focus();let r=null;
@@ -609,15 +612,26 @@ async function createJob(){
  if(!await saveJob(job))return;editId=job.id;
  $('#editInfo').textContent='บันทึกงานแล้ว — กำลังแก้ไขงานนี้ (กด "ล้างฟอร์ม" เพื่อเริ่มงานใหม่)';updCount();
  setTimeout(printSheet,150);}
-function printSheet(){
- const sh=$('#sheet').cloneNode(true);sh.querySelectorAll('.sel').forEach(e=>e.classList.remove('sel'));sh.querySelectorAll('[contenteditable]').forEach(e=>e.removeAttribute('contenteditable'));sh.querySelectorAll('[data-ph]').forEach(e=>e.removeAttribute('data-ph'));
+function openPrint(defs,body){
  const html=`<!DOCTYPE html><html lang="th"><head><meta charset="utf-8"><title>ใบปะหน้า</title><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600;700;800&display=swap" rel="stylesheet"><style>${document.querySelector('style').textContent}
-@media screen{body{background:#ddd}.sheet{width:148mm;height:210mm;margin:0 auto}}</style></head><body><svg width="0" height="0" style="position:absolute"><defs>${$('#defs').innerHTML}</defs></svg><main>${sh.outerHTML}</main><script>addEventListener('load',()=>setTimeout(()=>print(),600))<\/script></body></html>`;
+@media screen{body{background:#ddd}.sheet{width:148mm;height:210mm;margin:8px auto}}
+@media print{.sheet{break-after:page;page-break-after:always}.sheet:last-child{break-after:auto;page-break-after:auto}}</style></head><body><svg width="0" height="0" style="position:absolute"><defs>${defs}</defs></svg><main>${body}</main><script>addEventListener('load',()=>setTimeout(()=>print(),700))<\/script></body></html>`;
  let w=null;try{w=window.open('','_blank')}catch(e){}
  if(w){w.document.open();w.document.write(html);w.document.close();return}
  try{window.print()}catch(e){}
- toast('เบราว์เซอร์บล็อกหน้าต่างพิมพ์ — ลองอนุญาต pop-up หรือเปิดเว็บในแท็บเต็มแล้วกดพิมพ์ (Ctrl+P)');
-}
+ toast('เบราว์เซอร์บล็อกหน้าต่างพิมพ์ — ลองอนุญาต pop-up หรือเปิดเว็บในแท็บเต็มแล้วกดพิมพ์ (Ctrl+P)');}
+const clean=h=>h.replace(/ data-(?:edit|ph)="[^"]*"/g,'');
+function printSheet(){const d=normD(S);openPrint(filtersHTML(d.imgs),`<div class="sheet${d.cod?' hascod':''}">${clean(sheetInner(d,null))}</div>`)}
+let SELJ=new Set(),LISTED=[];
+function togSel(id,on){on?SELJ.add(id):SELJ.delete(id);updSel()}
+function updSel(){const ex=new Set(load().map(j=>j.id));[...SELJ].forEach(id=>{if(!ex.has(id))SELJ.delete(id)});
+ const n=SELJ.size,b=$('#prtSel');if(!b)return;b.disabled=!n;b.textContent=`🖨️ พิมพ์ที่เลือก (${n})`;
+ const all=LISTED.length&&LISTED.every(id=>SELJ.has(id));$('#selAll').checked=!!all;}
+function selAllToggle(on){LISTED.forEach(id=>on?SELJ.add(id):SELJ.delete(id));renderJobs();}
+function printJobs(){const jobs=load().filter(j=>SELJ.has(j.id)).sort((a,b)=>a.createdAt-b.createdAt);
+ if(!jobs.length){toast('ยังไม่ได้เลือกงานที่จะพิมพ์');return}
+ const ds=jobs.map(j=>normD(j.data));
+ openPrint(ds.map(d=>filtersHTML(d.imgs)).join(''),ds.map(d=>`<div class="sheet${d.cod?' hascod':''}">${clean(sheetInner(d,null))}</div>`).join(''));}
 function resetPos(k){S.pos=S.pos||{};S.pos[k]={x:0,y:0};renderSheet();}
 function saveDefSender(){const t=S.sender;try{localStorage.setItem(SK,t)}catch(e){}
  if(DB)DB.doc('settings/sender').set({text:t}).catch(()=>{});toast('บันทึกที่อยู่ผู้ส่งเป็นค่าเริ่มต้นแล้ว');}
@@ -639,7 +653,7 @@ function renderJobs(){
  const list=all.filter(j=>filter==='all'||(filter==='pending'&&j.status!=='sent')||(filter==='late'&&late(j))||(filter==='sent'&&j.status==='sent'));
  $('#jobList').innerHTML=list.length?list.map(j=>{const d=j.data,L=late(j);
   const rl=rcvOf(d).split('\n').filter(x=>x.trim()),sum=esc(detOf(d)).replace(/\n/g,', ');
-  return `<div class="card job ${L?'late':''}"><img class="t" src="${d.imgs[0]?.src||'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=='}">
+  return `<div class="card job ${L?'late':''}"><input type="checkbox" class="selJ" style="width:18px;height:18px" ${SELJ.has(j.id)?'checked':''} onchange="togSel('${j.id}',this.checked)"><img class="t" src="${d.imgs[0]?.src||'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=='}">
   <div><div><b>${esc(rl[0]||'(ไม่มีข้อมูลผู้รับ)')}</b></div>
   <div class="hint">${esc(rl.slice(1).join(' '))}</div>
   <div class="hint">${sum}${d.cut?' • ตัดแยกชิ้น':''}${d.cod?' • COD'+(d.codAmt?' '+esc(d.codAmt):''):''}${d.ems?' • EMS':''}</div>
@@ -647,7 +661,7 @@ function renderJobs(){
    <span class="hint">สร้าง ${fmt(j.createdAt)}${j.status==='sent'?` • ส่งเมื่อ ${fmt(j.sentAt)}`:` • ${j.rm.txt} (กำหนด ${fmt(j.createdAt+LIMIT)})`}</span></div>${trkList(j).length?`<div style="margin-top:5px;font-size:13px">📦 <b style="font-family:monospace">${esc(trkList(j).join(', '))}</b> <button class="b" style="padding:1px 8px;font-size:12px" onclick="copyText('${esc(trkList(j).join(', '))}','คัดลอกเลขพัสดุแล้ว')">คัดลอก</button> <button class="b d" style="padding:1px 8px;font-size:12px;${pendUn===j.id?'background:var(--bad);color:#fff;border-color:var(--bad)':''}" onclick="unlinkTrk('${j.id}')">${pendUn===j.id?'กดอีกครั้งเพื่อเอาออก':'เอาเลขออก'}</button></div>`:''}</div>
   <div class="jb">${j.status!=='sent'?`<button class="b p" onclick="setSent('${j.id}')">ส่งแล้ว ✓</button>`:`<button class="b" onclick="setSent('${j.id}',1)">ยกเลิกส่งแล้ว</button>`}
   <button class="b" onclick="openJob('${j.id}')">เปิด/พิมพ์ซ้ำ</button><button class="b d" style="${pendDel===j.id?'background:var(--bad);color:#fff;border-color:var(--bad)':''}" onclick="delJob('${j.id}')">${pendDel===j.id?'กดอีกครั้งเพื่อยืนยันลบ':'ลบ'}</button></div></div>`}).join('')
-  :'<p class="hint">ยังไม่มีงานในหมวดนี้</p>';updCount();}
+  :'<p class="hint">ยังไม่มีงานในหมวดนี้</p>';LISTED=list.map(j=>j.id);updCount();updSel();}
 
 /* ---------- SPX import ---------- */
 const PUA={0xF701:'\u0E34',0xF702:'\u0E35',0xF703:'\u0E36',0xF704:'\u0E37',0xF705:'\u0E48',0xF706:'\u0E49',0xF707:'\u0E4A',0xF708:'\u0E4B',0xF709:'\u0E4C',0xF70A:'\u0E48',0xF70B:'\u0E49',0xF70C:'\u0E4A',0xF70D:'\u0E4B',0xF70E:'\u0E4C',0xF710:'\u0E31',0xF711:'\u0E4D',0xF712:'\u0E47'};
