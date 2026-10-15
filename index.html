@@ -609,9 +609,9 @@ async function createJob(){
  if(!S.rAddr.trim()){toast('กรุณากรอกที่อยู่ผู้รับ');return}
  const data=JSON.parse(JSON.stringify(S)),ex=editId&&load().find(j=>j.id===editId);
  const job=ex?{...ex,data}:{id:'j'+Date.now(),createdAt:Date.now(),status:'issued',sentAt:null,data};
- if(!await saveJob(job))return;editId=job.id;
- $('#editInfo').textContent='บันทึกงานแล้ว — กำลังแก้ไขงานนี้ (กด "ล้างฟอร์ม" เพื่อเริ่มงานใหม่)';updCount();
- setTimeout(printSheet,150);}
+ if(!await saveJob(job))return;
+ updCount();printSheet();newForm();
+ toast('บันทึกงานแล้ว — ล้างฟอร์มพร้อมใส่งานใหม่ (ดู/แก้งานเก่าได้ที่รายการงาน → เปิด/พิมพ์ซ้ำ)');}
 function openPrint(defs,body){
  const html=`<!DOCTYPE html><html lang="th"><head><meta charset="utf-8"><title>ใบปะหน้า</title><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600;700;800&display=swap" rel="stylesheet"><style>${document.querySelector('style').textContent}
 @media screen{body{background:#ddd}.sheet{width:148mm;height:210mm;margin:8px auto}}
@@ -732,13 +732,35 @@ async function readSpx(file){await loadPdfJs();const pdf=await pdfjsLib.getDocum
  for(let n=1;n<=pdf.numPages;n++){const tc=await(await pdf.getPage(n)).getTextContent();
   lines=lines.concat(groupLines(tc.items.filter(i=>typeof i.str==='string').map(i=>({s:i.str,x:i.transform[4],y:i.transform[5],w:i.width||0}))))}
  return parseSpx(lines);}
+/* ---------- OCR fallback (image-only PDFs) ---------- */
+function loadTess(){return window.Tesseract?Promise.resolve():new Promise((ok,no)=>{const s=document.createElement('script');
+ s.src='https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';s.onload=ok;
+ s.onerror=()=>no(new Error('โหลดตัวอ่านภาพ (OCR) ไม่ได้ — ต้องต่ออินเทอร์เน็ต'));document.head.appendChild(s)})}
+function fixOcr(t){return String(t||'').replace(/[๐-๙]/g,c=>'๐๑๒๓๔๕๖๗๘๙'.indexOf(c))
+ .replace(/\bTH([0-9OoIl|]{9,14})([A-Z])?(?![A-Za-z0-9])/g,(m,d,l)=>'TH'+d.replace(/[Oo]/g,'0').replace(/[Il|]/g,'1')+(l||''))
+ .replace(/([\u0E00-\u0E7F])[ \t]+(?=[\u0E00-\u0E7F])/g,'$1')}
+function cropCanvas(c){const x=c.getContext('2d'),w=c.width,h=c.height,d=x.getImageData(0,0,w,h).data;let x0=w,y0=h,x1=0,y1=0;
+ for(let y=0;y<h;y+=2)for(let xx=0;xx<w;xx+=2){if(d[(y*w+xx)*4]<200){if(xx<x0)x0=xx;if(xx>x1)x1=xx;if(y<y0)y0=y;if(y>y1)y1=y}}
+ if(x1<=x0||y1<=y0)return c;const m=40;x0=Math.max(0,x0-m);y0=Math.max(0,y0-m);x1=Math.min(w-1,x1+m);y1=Math.min(h-1,y1+m);
+ const o=document.createElement('canvas');o.width=x1-x0+1;o.height=y1-y0+1;o.getContext('2d').drawImage(c,x0,y0,o.width,o.height,0,0,o.width,o.height);return o}
+async function readOcr(file){await loadPdfJs();await loadTess();
+ const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise;
+ $('#trkMsg').textContent='กำลังเตรียมตัวอ่านภาพ (ครั้งแรกอาจใช้เวลาโหลดสักครู่)…';
+ const wk=await Tesseract.createWorker('tha+eng');let lines=[];
+ try{await wk.setParameters({tessedit_pageseg_mode:'6'});
+  for(let n=1;n<=pdf.numPages;n++){$('#trkMsg').textContent=`กำลังอ่านภาพด้วย OCR… หน้า ${n}/${pdf.numPages}`;
+   const pg=await pdf.getPage(n),vp=pg.getViewport({scale:4.2}),c=document.createElement('canvas');c.width=Math.ceil(vp.width);c.height=Math.ceil(vp.height);
+   const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);await pg.render({canvasContext:x,viewport:vp}).promise;
+   const {data}=await wk.recognize(cropCanvas(c));lines=lines.concat(fixOcr(data.text).split('\n').map(l=>l.trim()).filter(Boolean))}}
+ finally{await wk.terminate()}
+ return parseSpx(lines);}
 let TRK=[];
 async function copyText(t,msg){const ok=()=>toast(msg||'คัดลอกแล้ว'),fb=()=>{const a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();try{document.execCommand('copy');ok()}catch(e){toast('คัดลอกไม่สำเร็จ')}a.remove()};
  try{navigator.clipboard.writeText(t).then(ok,fb)}catch(e){fb()}}
 function trkLines(){return TRK.map(x=>x.name?`${x.no} ${x.name}`:x.no)}
 function renderTrk(){const box=$('#trkOut');if(!TRK.length){box.innerHTML='';return}
  const jobs=load();
- box.innerHTML=`<div class="card"><div class="bar" style="margin-bottom:10px"><button class="b p" onclick="copyText(trkLines().join('\\n'),'คัดลอก '+TRK.length+' รายการแล้ว')">คัดลอกทั้งหมด (${TRK.length} รายการ)</button><button class="b" onclick="TRK=[];renderTrk()">ล้างรายการ</button></div>`+
+ box.innerHTML=`<div class="card"><div class="bar" style="margin-bottom:10px"><button class="b p" onclick="copyText(trkLines().join('\\n'),'คัดลอก '+TRK.length+' รายการแล้ว')">คัดลอกทั้งหมด (${TRK.length} รายการ)</button><button class="b" onclick="TRK=[];renderTrk()">ล้างรายการ</button></div>${TRK.some(x=>x.ocr)?'<div class="hint" style="margin-bottom:8px;color:var(--bad)">⚠ บางรายการอ่านจากภาพ (OCR) — ตรวจเลขพัสดุกับต้นฉบับอีกครั้งก่อนใช้</div>':''}`+
  TRK.map((x,i)=>{const lj=jobs.find(j=>trkList(j).includes(x.no)),c=lj?[]:candsFor(x,jobs).slice(0,8);
   const opt=j=>`<option value="${j.id}">${esc(sLbl(j)+jobLbl(j)+(j.tracking?' • มีเลขแล้ว':''))}</option>`,btn=`<button class="b p" style="padding:4px 12px;font-size:13px" onclick="linkTrk(${i})">ผูกเลขกับงาน</button>`;
   let act='';
@@ -750,9 +772,10 @@ function renderTrk(){const box=$('#trkOut');if(!TRK.length){box.innerHTML='';ret
 async function takeFiles(files){const fl=[...files].filter(f=>/pdf/i.test(f.type)||/\.pdf$/i.test(f.name));
  if(!fl.length){toast('กรุณาเลือกไฟล์ PDF');return}
  $('#trkMsg').textContent='กำลังอ่าน PDF…';$('#trkDbg').innerHTML='';let add=0;
- for(const f of fl){try{const r=await readSpx(f);
+ for(const f of fl){try{let r=await readSpx(f),viaOcr=false;
+   if(!r.items.length&&r.lines.join('').length<30){try{r=await readOcr(f);viaOcr=true}catch(e){toast('อ่านภาพ (OCR) ไม่สำเร็จ: '+(e.message||e));continue}}
    if(!r.items.length){const t=r.lines.join('\n');$('#trkDbg').innerHTML=`<div class="card"><b>ไม่พบเลขพัสดุใน ${esc(f.name)}</b><div class="hint">อ่านข้อความได้ ${t.length} ตัวอักษร${t.length?'':' — ไฟล์น่าจะเป็นภาพ ไม่มีข้อความให้อ่าน'}</div><textarea readonly rows="8" style="margin-top:6px">${esc(t.slice(0,2000))}</textarea></div>`;continue}
-   r.items.forEach(it=>{if(!TRK.some(x=>x.no===it.no)){TRK.push({...it,doc:r.doc,at:r.at});add++}})}
+   r.items.forEach(it=>{if(!TRK.some(x=>x.no===it.no)){TRK.push({...it,doc:r.doc,at:r.at,ocr:viaOcr});add++}})}
   catch(err){toast('อ่าน PDF ไม่สำเร็จ: '+(err.message||err))}}
  $('#trkMsg').textContent='';renderTrk();if(add)toast(`เพิ่ม ${add} รายการ`);}
 $('#trkPick').onclick=()=>$('#trkIn').click();
