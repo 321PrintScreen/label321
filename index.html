@@ -135,6 +135,7 @@ main{padding:0;max-width:none}.app{display:block}.pv{position:static}
   <div class="nopr" style="margin-top:10px;display:flex;flex-direction:column;align-items:center;gap:6px"><div class="bar" style="justify-content:center">
    <button class="b p" onclick="createJob()">🖨️ สร้างใบปะหน้า (บันทึกเป็นงาน)</button>
    <button class="b" onclick="printSheet()">พิมพ์อย่างเดียว</button>
+   <button class="b" onclick="saveCurPdf()">💾 บันทึก PDF</button>
    <button class="b" onclick="newForm()">ล้างฟอร์ม</button></div>
   <p class="hint" id="editInfo"></p></div></div>
 </div>
@@ -148,7 +149,7 @@ main{padding:0;max-width:none}.app{display:block}.pv{position:static}
 </div>
 <div id="jobsView" class="hide">
  <div class="bar" style="margin-bottom:10px" id="flt"></div>
- <div class="bar" id="selBar" style="margin-bottom:12px;align-items:center"><label class="chk" style="margin:0"><input type="checkbox" id="selAll" onchange="selAllToggle(this.checked)"> เลือกทั้งหมดในรายการ</label><button class="b p" id="prtSel" onclick="printJobs()" disabled>🖨️ พิมพ์ที่เลือก (0)</button><span class="hint">ติ๊กเลือกงานที่การ์ด แล้วสั่งพิมพ์พร้อมกัน เรียงตามเวลาที่สร้าง (เก่าไปใหม่)</span></div>
+ <div class="bar" id="selBar" style="margin-bottom:12px;align-items:center"><label class="chk" style="margin:0"><input type="checkbox" id="selAll" onchange="selAllToggle(this.checked)"> เลือกทั้งหมดในรายการ</label><button class="b p" id="prtSel" onclick="printJobs()" disabled>🖨️ พิมพ์ที่เลือก (0)</button><button class="b" id="pdfSel" onclick="savePdfSel()" disabled>💾 บันทึก PDF ที่เลือก</button><span class="hint">ติ๊กเลือกงานที่การ์ด แล้วสั่งพิมพ์พร้อมกัน เรียงตามเวลาที่สร้าง (เก่าไปใหม่)</span></div>
  <div id="mig"></div><div id="jobList"></div>
 </div>
 </main>
@@ -622,10 +623,42 @@ function openPrint(defs,body){
  toast('เบราว์เซอร์บล็อกหน้าต่างพิมพ์ — ลองอนุญาต pop-up หรือเปิดเว็บในแท็บเต็มแล้วกดพิมพ์ (Ctrl+P)');}
 const clean=h=>h.replace(/ data-(?:edit|ph)="[^"]*"/g,'');
 function printSheet(){const d=normD(S);openPrint(filtersHTML(d.imgs),`<div class="sheet${d.cod?' hascod':''}">${clean(sheetInner(d,null))}</div>`)}
+/* ---------- Save as PDF ---------- */
+let FONTCSS=null;
+async function fontCSS(){if(FONTCSS!==null)return FONTCSS;
+ try{const css=await(await fetch('https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600;700;800&display=swap')).text();
+  const keep=css.split(/(?=\/\*\s*[\w-]+\s*\*\/)/).filter(b=>/^\/\*\s*(thai|latin)\s*\*\//.test(b)).join('\n');
+  let out=keep;const urls=[...new Set([...keep.matchAll(/url\((https:[^)]+)\)/g)].map(m=>m[1]))];
+  await Promise.all(urls.map(async u=>{const b=await(await fetch(u)).blob();const d=await new Promise(r=>{const f=new FileReader();f.onload=()=>r(f.result);f.readAsDataURL(b)});out=out.split(u).join(d)}));
+  FONTCSS=out}catch(e){FONTCSS=''}
+ return FONTCSS}
+async function sheetToCanvas(d){const W=1748,H=2480,box=document.createElement('div');
+ box.innerHTML=`<div class="sheet${d.cod?' hascod':''}" style="width:${W}px;height:${H}px;aspect-ratio:auto;box-shadow:none;margin:0">${clean(sheetInner(d,null))}</div>`;
+ const xml=new XMLSerializer().serializeToString(box.firstChild),css=document.querySelector('style').textContent,fc=await fontCSS();
+ const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}"><defs>${filtersHTML(d.imgs)}</defs><foreignObject x="0" y="0" width="${W}" height="${H}"><div xmlns="http://www.w3.org/1999/xhtml"><style><![CDATA[${fc}\n${css}]]></style>${xml}</div></foreignObject></svg>`;
+ const url='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg),img=new Image();
+ await new Promise((ok,no)=>{img.onload=ok;img.onerror=()=>no(new Error('วาดใบปะหน้าไม่สำเร็จ'));img.src=url});
+ await new Promise(r=>setTimeout(r,120));
+ const c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,W,H);x.drawImage(img,0,0);return c}
+function loadPdfLib(){return window.PDFLib?Promise.resolve():new Promise((ok,no)=>{const s=document.createElement('script');
+ s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js';s.onload=ok;s.onerror=()=>no(new Error('โหลดตัวสร้าง PDF ไม่ได้ (ต้องต่ออินเทอร์เน็ต)'));document.head.appendChild(s)})}
+function fnameOf(list){if(list.length>1)return `ใบปะหน้า-${list.length}ใบ.pdf`;
+ const n=(list[0].rAddr||'').split('\n').find(x=>x.trim())||'ใบปะหน้า',t=new Date(),p=v=>String(v).padStart(2,'0');
+ return `ใบปะหน้า-${n.replace(/[\\/:*?"<>|\r\n]+/g,' ').trim().slice(0,24)}-${t.getFullYear()}${p(t.getMonth()+1)}${p(t.getDate())}-${p(t.getHours())}${p(t.getMinutes())}.pdf`}
+async function savePdf(list){if(!list.length){toast('ไม่มีใบปะหน้าให้บันทึก');return}
+ toast('กำลังสร้าง PDF…');
+ try{await loadPdfLib();const doc=await PDFLib.PDFDocument.create(),PW=419.53,PH=595.28;
+  for(const d of list){const c=await sheetToCanvas(d),b=await new Promise(r=>c.toBlob(r,'image/jpeg',.95)),jpg=await doc.embedJpg(new Uint8Array(await b.arrayBuffer()));
+   doc.addPage([PW,PH]).drawImage(jpg,{x:0,y:0,width:PW,height:PH})}
+  const bytes=await doc.save(),a=document.createElement('a');a.href=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));a.download=fnameOf(list);document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),4000);toast('บันทึก PDF แล้ว: '+fnameOf(list))}
+ catch(e){toast('สร้าง PDF ไม่สำเร็จ: '+(e.message||e)+' — ใช้ปุ่มพิมพ์แล้วเลือก Save as PDF แทนได้')}}
+function saveCurPdf(){savePdf([normD(S)])}
+function savePdfSel(){savePdf(load().filter(j=>SELJ.has(j.id)).sort((a,b)=>a.createdAt-b.createdAt).map(j=>normD(j.data)))}
 let SELJ=new Set(),LISTED=[];
 function togSel(id,on){on?SELJ.add(id):SELJ.delete(id);updSel()}
 function updSel(){const ex=new Set(load().map(j=>j.id));[...SELJ].forEach(id=>{if(!ex.has(id))SELJ.delete(id)});
- const n=SELJ.size,b=$('#prtSel');if(!b)return;b.disabled=!n;b.textContent=`🖨️ พิมพ์ที่เลือก (${n})`;
+ const n=SELJ.size,b=$('#prtSel');if(!b)return;b.disabled=!n;b.textContent=`🖨️ พิมพ์ที่เลือก (${n})`;$('#pdfSel').disabled=!n;
  const all=LISTED.length&&LISTED.every(id=>SELJ.has(id));$('#selAll').checked=!!all;}
 function selAllToggle(on){LISTED.forEach(id=>on?SELJ.add(id):SELJ.delete(id));renderJobs();}
 function printJobs(){const jobs=load().filter(j=>SELJ.has(j.id)).sort((a,b)=>a.createdAt-b.createdAt);
