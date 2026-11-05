@@ -17,7 +17,7 @@ header{display:flex;gap:8px;align-items:center;padding:12px 16px;background:var(
 header h1{font-size:18px;margin:0}.ttl{display:flex;align-items:center;gap:10px;margin-right:auto;flex-wrap:wrap}
 #lgOut{font-size:12px;padding:3px 10px;color:var(--mute)}#lgOut.cf{background:var(--bad);border-color:var(--bad);color:#fff}
 .tab{border:1px solid var(--line);background:none;color:var(--ink);padding:7px 14px;border-radius:8px;font:inherit;cursor:pointer}
-.tab.on{background:var(--acc);border-color:var(--acc);color:#fff}
+.tab.on{background:var(--acc);border-color:var(--acc);color:#fff}#t2{background:#ffd43b;border-color:#e0b400;color:#1d2330;font-weight:600}#t2:hover{background:#ffcb05}#t2.on{background:#f5c400;border-color:#a88600;box-shadow:inset 0 0 0 1px #a88600}
 main{max-width:1180px;margin:0 auto;padding:16px}
 .app{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,460px);gap:16px;align-items:start}
 @media(max-width:860px){.app{grid-template-columns:1fr}}
@@ -741,7 +741,7 @@ async function createJob(doPrint=true){
  const job=ex?{...ex,data}:{id:'j'+now,createdAt:now,status:'issued',sentAt:null,data};
  if(!await saveJob(job))return;
  updCount();if(doPrint)await printSheet();newForm();
- toast(doPrint?'บันทึกงานแล้ว — ล้างฟอร์มพร้อมใส่งานใหม่ (ดู/แก้งานเก่าได้ที่รายการงาน → เปิด/พิมพ์ซ้ำ)':'บันทึกงานแล้ว (ไม่ได้พิมพ์) — ล้างฟอร์มพร้อมใส่งานใหม่');}
+ toast(doPrint?'บันทึกงานแล้ว — ล้างฟอร์มพร้อมใส่งานใหม่ (ดู/แก้งานเก่าได้ที่รายการงาน → เปิดแก้ไข / พิมพ์ซ้ำ)':'บันทึกงานแล้ว (ไม่ได้พิมพ์) — ล้างฟอร์มพร้อมใส่งานใหม่');}
 function openPrint(defs,body){
  const html=`<!DOCTYPE html><html lang="th"><head><meta charset="utf-8"><title>ใบปะหน้า</title><link href="${gfUrl(FONTS)}" rel="stylesheet"><style>${document.querySelector('style').textContent}
 @media screen{body{background:#ddd}.sheet{width:148mm;height:210mm;margin:8px auto}}
@@ -790,7 +790,7 @@ function updSel(){const ex=new Set(load().map(j=>j.id));[...SELJ].forEach(id=>{i
  const n=SELJ.size,b=$('#prtSel');if(!b)return;b.disabled=!n;b.textContent=`🖨️ พิมพ์ที่เลือก (${n})`;$('#pdfSel').disabled=!n;$('#sumSel').disabled=!n;
  const all=LISTED.length&&LISTED.every(id=>SELJ.has(id));$('#selAll').checked=!!all;}
 function selAllToggle(on){LISTED.forEach(id=>on?SELJ.add(id):SELJ.delete(id));renderJobs();}
-async function printJobs(){const jobs=load().filter(j=>SELJ.has(j.id)).sort((a,b)=>a.createdAt-b.createdAt);
+async function printJobs(only){const jobs=load().filter(j=>only?j.id===only:SELJ.has(j.id)).sort((a,b)=>a.createdAt-b.createdAt);
  if(!jobs.length){toast('ยังไม่ได้เลือกงานที่จะพิมพ์');return}
  const ds=jobs.map(j=>normD({...j.data,at:j.data.at||j.createdAt}));await Promise.all(ds.map(d=>ensureProc(d.imgs)));
  openPrint(ds.map(d=>filtersHTML(d.imgs)).join(''),ds.map(d=>`<div class="sheet${d.cod?' hascod':''}" style="${sf(d)}">${clean(sheetInner(d,null))}</div>`).join(''));}
@@ -889,7 +889,7 @@ function renderJobs(){
   <div style="margin-top:4px">${j.status==='sent'?'<span class="bd s">ส่งแล้ว</span>':'<span class="bd a">ออกใบปะหน้าแล้ว</span>'}${L?'<span class="bd l">ล่าช้า</span>':''}
    <span class="hint">สร้าง ${fmt(j.createdAt)}${j.status==='sent'?` • ส่งเมื่อ ${fmt(j.sentAt)}`:` • ${j.rm.txt} (กำหนด ${fmt(j.createdAt+LIMIT)})`}</span></div>${trkList(j).length?`<div style="margin-top:5px;font-size:13px">📦 <b style="font-family:monospace">${esc(trkList(j).join(', '))}</b> <button class="b" style="padding:1px 8px;font-size:12px" onclick="copyText('${esc(trkList(j).join(', '))}','คัดลอกเลขพัสดุแล้ว')">คัดลอก</button> <button class="b d" style="padding:1px 8px;font-size:12px;${pendUn===j.id?'background:var(--bad);color:#fff;border-color:var(--bad)':''}" onclick="unlinkTrk('${j.id}')">${pendUn===j.id?'กดอีกครั้งเพื่อเอาออก':'เอาเลขออก'}</button></div>`:''}</div>
   <div class="jb">${j.status!=='sent'?`<button class="b p" onclick="setSent('${j.id}')">ส่งแล้ว ✓</button>`:`<button class="b" onclick="setSent('${j.id}',1)">ยกเลิกส่งแล้ว</button>`}
-  <button class="b" onclick="openJob('${j.id}')">เปิด/พิมพ์ซ้ำ</button><button class="b d" style="${pendDel===j.id?'background:var(--bad);color:#fff;border-color:var(--bad)':''}" onclick="delJob('${j.id}')">${pendDel===j.id?'กดอีกครั้งเพื่อยืนยันลบ':'ลบ'}</button></div></div>`}).join('')
+  <button class="b" onclick="openJob('${j.id}')" title="เปิดงานนี้ในหน้าสร้างใบปะหน้าเพื่อดู/แก้ไข">✏️ เปิดแก้ไข</button><button class="b" onclick="printJobs('${j.id}')" title="พิมพ์ใบปะหน้างานนี้ทันที">🖨️ พิมพ์ซ้ำ</button><button class="b d" style="${pendDel===j.id?'background:var(--bad);color:#fff;border-color:var(--bad)':''}" onclick="delJob('${j.id}')">${pendDel===j.id?'กดอีกครั้งเพื่อยืนยันลบ':'ลบ'}</button></div></div>`}).join('')
   :`<p class="hint">${JQ?`ไม่พบงานที่ตรงกับ “${esc(JQ)}”`:'ยังไม่มีงานในหมวดนี้'}</p>`;LISTED=list.map(j=>j.id);updCount();updSel();}
 
 /* ---------- SPX import ---------- */
